@@ -46,8 +46,10 @@ function clone(token, ref = 'testing') {
 async function prepare() {
   const dir = clone(BOT);
   state.original = sh(dir, 'git', 'rev-parse', 'HEAD');
-  sh(dir, 'git', 'fetch', '-q', '/workspace', 'lab/product-lane');
+  sh(dir, 'git', 'fetch', '-q', '/workspace', process.env.LANE_BRANCH || 'lab/product-lane');
+  try {
   sh(dir, 'git', 'merge', '-q', '--no-edit', 'FETCH_HEAD');
+  } catch (e) { console.error('MERGE CONFLICT in', dir, sh(dir, 'git', 'status', '--short')); throw e; }
   if (existsSync('/workspace/node_modules')) symlinkSync('/workspace/node_modules', join(dir, 'node_modules'));
   sh(dir, 'node', '--test', ...sh(dir, 'git', 'ls-files', 'test/unit/pipeline').split('\n').filter((f) => f.endsWith('.test.js')));
   state.applied = sh(dir, 'git', 'rev-parse', 'HEAD');
@@ -224,10 +226,28 @@ async function happy() {
   row({ name: 'SHIPPED: ship it naming the PR', pr: number, run: r.url, line: r.line, ok: after.state === 'MERGED' && after.locked, after: `${after.state} by ${after.mergedBy}, lock ${after.locked}` });
 }
 
+async function regress() {
+  const t = Date.now().toString(36);
+  const p = openPr({ branch: `pipeline/docs-regress-${t}`, edit: (d) => write(d, 'docs/regress-note.md', '# Note\n\nA docs-only pipeline change.\n'), title: 'Docs-only pipeline change (regression of the old lane)' });
+  log('waiting for checks on', p.sha);
+  log(await waitGreen(p.sha));
+  await mergeable(p.number);
+  await sleep(5);
+  const r = await dispatch({ number: p.number, sha: p.sha, said: '' });
+  const after = pullState(p.number);
+  row({ name: 'REGRESSION pipeline/ docs PR, no words', pr: p.number, run: r.url, line: r.line, ok: after.state === 'MERGED' && after.locked, after: `${after.state} by ${after.mergedBy}, lock ${after.locked}` });
+  const q = openPr({ branch: `pipeline/src-regress-${t}`, edit: (d) => write(d, 'src/main/regress.js', 'export {};\n'), title: 'App file on a pipeline branch (must stay refused)' });
+  await mergeable(q.number); await sleep(8);
+  const r2 = await dispatch({ number: q.number, sha: q.sha, said: `ship it ${q.number}` });
+  const a2 = pullState(q.number);
+  row({ name: 'REGRESSION pipeline/ branch with src file stays refused', pr: q.number, run: r2.url, line: r2.line, ok: a2.state === 'OPEN' && !a2.locked && /more than the automation/.test(r2.line), after: `${a2.state}, lock ${a2.locked}` });
+}
+
 const cmd = process.argv[2];
 if (cmd === 'prepare') await prepare();
 else if (cmd === 'open-happy') await openHappy();
 else if (cmd === 'refusals') await refusals();
 else if (cmd === 'happy') await happy();
+else if (cmd === 'regress') await regress();
 else if (cmd === 'restore') await restore();
 else { console.error('usage: product-live.mjs prepare|open-happy|refusals|happy|restore'); process.exit(2); }
