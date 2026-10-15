@@ -356,7 +356,7 @@ contributor. Write only to pull request #<PR_NUMBER>.
    check broken on its own, a rule no correct fix could meet, or a
    failure caused by something outside this branch such as `main`
    or the GitHub runner. Then run
-     gh pr edit <PR_NUMBER> --add-label needs-owner
+     gh issue edit <PR_NUMBER> --add-label needs-owner
    write the technical case as a comment on the pull request
    (technical words are fine there: which check, what it expects,
    what is wrong with it, what you recommend), write the result

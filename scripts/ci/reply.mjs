@@ -216,6 +216,14 @@ export const LABELS = {
 };
 
 /**
+ * States that mean the pipeline is working again or the contributor is being
+ * served. A `needs-owner` left by an earlier crash is stale by then, and the
+ * owner's inbox must not list an issue that is moving. The states that still
+ * need a person (stuck, failed, maintainer, the sent-* hand-offs) keep it.
+ */
+export const CLEARS_NEEDS_OWNER = ['started', 'ready', 'revised', 'asked', 'answered', 'sent'];
+
+/**
  * One pass of the cleaning rules. `cleanMessage` repeats it until nothing changes,
  * because a rule can build what an earlier rule removed: `@@claude` becomes
  * `@claude` when the first `@` is taken out, and `<!<b>-- omniya-pipeline-`
@@ -332,10 +340,18 @@ export function postReply({ issue, state, repo, pr, message }, run = gh) {
   const number = requireNumber(issue, 'issue number');
   const body = renderReply(state, { repo, pr, message });
   run(['api', `repos/${repo}/issues/${number}/comments`, '-f', `body=${body}`]);
-  const label = LABELS[resolveState(state, message)];
+  const posted = resolveState(state, message);
+  const label = LABELS[posted];
   if (label) {
     run(['label', 'create', label.name, '--repo', repo, '--force', '--description', label.description]);
     run(['issue', 'edit', number, '--repo', repo, '--add-label', label.name]);
+  }
+  if (CLEARS_NEEDS_OWNER.includes(posted)) {
+    try {
+      run(['issue', 'edit', number, '--repo', repo, '--remove-label', 'needs-owner']);
+    } catch {
+      // The label was not there. The comment is already posted.
+    }
   }
   return { posted: 1, labelled: label?.name };
 }
