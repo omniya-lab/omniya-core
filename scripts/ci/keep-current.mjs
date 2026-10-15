@@ -119,7 +119,13 @@ export function keepCurrent({ repo, only = '', mergeToken, claim = false }, gh =
   if (claim) {
     for (const number of heal) {
       ensureLabel(gh, repo, RETRIED, 'A pipeline fault, retried once', mergeToken);
-      gh(['issue', 'edit', String(number), '--repo', repo, '--add-label', RETRIED, '--remove-label', FAULT], { token: mergeToken });
+      gh(['issue', 'edit', String(number), '--repo', repo, '--add-label', RETRIED], { token: mergeToken });
+      // An old pull request never had the fault label, and taking off a label that is not there is an error.
+      try {
+        gh(['issue', 'edit', String(number), '--repo', repo, '--remove-label', FAULT], { token: mergeToken });
+      } catch {
+        // Not there.
+      }
     }
   }
   for (const pr of pick) {
