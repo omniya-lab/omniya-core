@@ -90,7 +90,8 @@ test('the workflow wires it: no agent for a confirmation, the same author rule, 
   const wf = load(readFileSync(new URL('../../../.github/workflows/pipeline-followup.yml', import.meta.url), 'utf8'));
   const gate = wf.jobs.allowlist;
   const text = JSON.stringify(gate.if);
-  assert.match(text, /length\(github\.event\.comment\.body\) <= 40/);
+  assert.match(text, /contains\(github\.event\.comment\.body, 'works'\)/);
+  for (const p of PHRASES) assert.ok(/works|fixed|looks good/.test(p), `the cheap filter in the \`if\` must let ${p} through`);
   assert.match(gate.outputs.allowed, /steps\.confirm\.outputs\.confirm != 'true'/, 'the agent is skipped for a confirmation');
   assert.match(gate.outputs.allowed, /steps\.shape\.outputs\.mention == 'true'/, 'every other comment still needs @claude');
   const confirm = gate.steps.find((s) => s.id === 'confirm');
