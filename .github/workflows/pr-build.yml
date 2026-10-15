@@ -17,6 +17,13 @@ name: pr-build
 # `pipeline-verify.yml` waits for it. Only the `comment` job skips it: the
 # download links are posted to the ISSUE, by the verify report, because the
 # contributor never reads the pull request.
+#
+# Two kinds of job, and the split is the point. A BUILD job runs the repository's own
+# scripts (`npm ci`, `npm run dist:*`) with a read-only token and no secret, and hands its
+# files on as an artifact. The PUBLISH job holds the write token, runs nothing from the
+# repository (no checkout, no npm) and only calls `gh`. So a build script, which anyone
+# may change by saying "it works", never runs where there is a token to take.
+# `test/unit/pipeline/zones.test.js` holds that rule.
 on:
   pull_request:
     branches: [testing]
@@ -27,13 +34,14 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 jobs:
   pack-mac:
     runs-on: ${{ vars.MAC_RUNNER || 'macos-latest' }}
     timeout-minutes: 45
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -43,9 +51,50 @@ jobs:
       - run: brew install liblouis
       - run: npm ci
       - run: npm run dist:mac
-      - name: Publish the mac zip to this pull request's prerelease
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-mac
+          path: dist/*.zip
+          if-no-files-found: error
+
+  pack-win:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run dist:win
+      # Top-level dist/*.exe only. dist/win-unpacked holds the NSIS target's intermediate
+      # build (bundled liblouis and elevate helpers, the raw unpacked exe), which must never
+      # be uploaded as if it were a release asset. testing-app.yml documents the same trap.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-win
+          path: dist/*.exe
+          if-no-files-found: error
+
+  # Holds the write token and runs nothing from the repository: no checkout, no npm, only gh.
+  publish:
+    needs: [pack-mac, pack-win]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: builds
+          merge-multiple: true
+      - name: Publish both builds to this pull request's prerelease
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
           # Through env, never inline in the command: a branch name is
           # attacker-controlled text and `run:` is a shell.
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -66,47 +115,15 @@ jobs:
           gh release view "$TAG" >/dev/null 2>&1 \
             || gh release create "$TAG" --prerelease --title "Test build for PR #${PR_NUMBER}" --notes "$NOTES" --target "$HEAD_SHA"
           gh release edit "$TAG" --notes "$NOTES"
-          gh release upload "$TAG" dist/*.zip --clobber
-
-  pack-win:
-    runs-on: windows-latest
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: npm
-      - run: npm ci
-      - run: npm run dist:win
-      - name: Publish the Windows installer to this pull request's prerelease
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: |
-          $tag = "pr-$env:PR_NUMBER"
-          gh release view $tag > $null 2>&1
-          if ($LASTEXITCODE -ne 0) {
-            gh release create $tag --prerelease --title "Test build for PR #$env:PR_NUMBER" --notes "Test build of pull request #$env:PR_NUMBER." --target $env:HEAD_SHA
-          }
-          # Top-level dist\* only (no -Recurse). dist\win-unpacked holds the NSIS
-          # target's intermediate build -- bundled liblouis and elevate helpers,
-          # the raw unpacked exe -- which must never be uploaded as if it were a
-          # release asset. This is the same trap testing-app.yml documents.
-          $assets = Get-ChildItem -Path "dist\*" -Include *.exe
-          if (-not $assets) { throw "No installer found in dist" }
-          foreach ($asset in @($assets)) {
-            gh release upload $tag $asset.FullName --clobber
-            if ($LASTEXITCODE -ne 0) { throw "gh release upload failed for $($asset.FullName)" }
-          }
+          gh release upload "$TAG" builds/*.zip builds/*.exe --clobber
 
   comment:
-    needs: [pack-mac, pack-win]
+    needs: [publish]
     if: ${{ !startsWith(github.head_ref, 'claude/fix-') }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      pull-requests: write
     steps:
       - name: Post one comment with a direct link per platform
         env:
