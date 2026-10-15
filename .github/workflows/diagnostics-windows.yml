@@ -42,5 +42,5 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci
-      - run: node scripts/build-editor.mjs
+      - run: node scripts/build/build-editor.mjs
       - run: node --test --test-concurrency=1 test/e2e/input-diagnostics.test.js

@@ -105,7 +105,7 @@ notes; a braille file (BRF) export.
 | Equation in the page | `src/renderer/editor/math-node-view.js` | Draws one equation. Names it for a reader. Hands the keys to the explorer when it is entered. |
 | MathJax drawing | `src/renderer/editor/math-render.js` | Draws MathML. Reads MathJax's speech label. |
 | Word's Backspace | `src/renderer/editor/commands.js` | Select the equation first, then delete it. |
-| Bundle | `scripts/build-editor.mjs` | Builds `editor.bundle.js`. Runs before `npm start`, `npm run test:e2e` and the packaging scripts. |
+| Bundle | `scripts/build/build-editor.mjs` | Builds `editor.bundle.js`. Runs before `npm start`, `npm run test:e2e` and the packaging scripts. |
 | App | `src/renderer/app.js` | Napkin list, saving, the equation field, the explorer, menus. |
 | Saved shape | `src/domain/document.js` | The plain JSON of a document. No ProseMirror import, so the domain stays standalone. |
 | Upgrade | `src/domain/migration.js` | Old item lists become documents. `storage.js` keeps a copy of the old file first. |
