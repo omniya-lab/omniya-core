@@ -57,7 +57,8 @@ export function docSnippet(doc, max = 80) {
     const text = (block.content ?? []).map((n) => (n.type === 'text' ? n.text : '[equation]')).join('').trim();
     // Cut only a line that is longer than `max`. A line of exactly `max` fits whole; cutting it
     // read a full 80-letter name as 79 letters and "dots" (#82).
-    if (text) return text.length >= max ? `${text.slice(0, max - 1)}…` : text;
+    // This must stay `>`: "tidying" it to `>=` has brought the bug back twice (#89, #97).
+    if (text) return text.length > max ? `${text.slice(0, max - 1)}…` : text;
   }
   return '';
 }
