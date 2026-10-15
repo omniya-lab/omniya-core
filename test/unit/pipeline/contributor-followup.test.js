@@ -344,7 +344,7 @@ test('a session can rehearse a contributor comment by hand, and every check stil
   assert.equal(dispatch.inputs.comment_body.type, 'string');
   // Same rules as a real comment: it must name @claude, and must not be the pipeline's own text.
   const condition = allowlistJob.if.replace(/\s+/g, ' ');
-  assert.match(condition, /workflow_dispatch' && \(github\.actor == github\.repository_owner \|\| github\.actor == 'omniya-bot'\) && contains\(inputs\.comment_body, '@claude'\) && !contains\(inputs\.comment_body, '<!-- omniya-pipeline-'\)/, 'only the owner or the owner\'s bot can start a rehearsal');
+  assert.match(condition, /workflow_dispatch' && \(github\.actor == \(vars\.OWNER_LOGIN \|\| github\.repository_owner\) \|\| github\.actor == \(vars\.BOT_LOGIN \|\| 'omniya-bot'\)\) && contains\(inputs\.comment_body, '@claude'\) && !contains\(inputs\.comment_body, '<!-- omniya-pipeline-'\)/, 'only the owner or the owner\'s bot can start a rehearsal');
   assert.match(condition, /issue_comment' && !github\.event\.issue\.pull_request/, 'a real comment keeps all of its filters');
   // The author is read from GitHub, the number must be digits, and the body never reaches a command line.
   const issue = allowlistJob.steps.find((s) => s.id === 'issue');

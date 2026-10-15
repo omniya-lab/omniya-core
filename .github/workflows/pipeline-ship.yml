@@ -47,7 +47,7 @@ permissions:
 
 jobs:
   ship:
-    if: github.actor == github.repository_owner || github.actor == 'omniya-bot'
+    if: github.actor == (vars.OWNER_LOGIN || github.repository_owner) || github.actor == (vars.BOT_LOGIN || 'omniya-bot')
     environment: pipeline
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -66,7 +66,7 @@ jobs:
       - env:
           GH_TOKEN: ${{ github.token }}
           MERGE_TOKEN: ${{ steps.app.outputs.token }}
-          ALLOWED_AUTHORS: ${{ github.repository_owner }},omniya-bot
+          ALLOWED_AUTHORS: ${{ vars.OWNER_LOGIN || github.repository_owner }},${{ vars.BOT_LOGIN || 'omniya-bot' }}
           PR: ${{ inputs.pr_number }}
           SHA: ${{ inputs.sha }}
           OWNER_SAID: ${{ inputs.owner_said }}
