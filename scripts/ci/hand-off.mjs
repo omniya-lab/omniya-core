@@ -28,6 +28,7 @@ import { pathToFileURL } from 'node:url';
 
 import { gh as realGh, requireNumber, setOutputs } from './gh.mjs';
 import { postReply } from './reply.mjs';
+import { zoneOf } from './zones.mjs';
 
 export const REQUIRED_CHECKS = ['unit', 'nemeth', 'e2e'];
 
@@ -46,20 +47,16 @@ export function notGreen(checkRuns) {
 
 /**
  * An allowlist, not a denylist. A fix may merge by itself only if every file it
- * touches is app source, a test or a doc. Anything else -- workflows, scripts,
+ * touches is in the AUTOMATIC zone of the one map, `zones.json`: app source, tests, docs, and
+ * the scripts that build the app. Nothing there is ever run by a job that holds power. Anything else -- workflows, scripts,
  * `.claude`, package files, CODEOWNERS, a path nobody thought of -- is for the
  * maintainer. GitHub gives paths in one exact form, so there is nothing to
  * normalise, and an odd path (empty, absolute, `..`, a backslash) fails closed.
  * The Nemeth corpus is the grading data, so it is not a place a fix may edit.
  */
-const SAFE_PREFIXES = ['src/', 'test/', 'docs/'];
-const GRADING_DATA = 'test/corpus/';
-
 export function protectedPath(path) {
-  const p = String(path ?? '');
-  if (!p || p.startsWith('/') || p.includes('\\') || p.split('/').includes('..')) return true;
-  if (p.startsWith(GRADING_DATA)) return true;
-  return !SAFE_PREFIXES.some((prefix) => p.startsWith(prefix));
+  // The one map (`zones.json`) says what is automatic. An odd path, or one in no zone, is not.
+  return zoneOf(path).zone !== 'automatic';
 }
 
 /**
