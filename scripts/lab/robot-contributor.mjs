@@ -183,7 +183,7 @@ export async function run({
     await waitFor('the started comment', (cs) => cs.find((c) => c.body.includes(WORDS.started)));
     step('2 the bot said it started');
 
-    if (!sc.merges) return await designChecks();
+    if (!sc.merges && !sc.variant) return await designChecks();
     return await fixCycle();
   } catch (err) {
     err.partial = result({ issue: n });
