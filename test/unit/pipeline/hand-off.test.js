@@ -220,7 +220,7 @@ test('a clean fix: the status is set, then auto-merge is asked for with the merg
   assert.equal(result.merge, true);
   const lines = f.calls.map((c) => c.line);
   const status = lines.findIndex((l) => l.startsWith('api repos/a/b/statuses/abc123') && l.includes('context=contributor-tested') && l.includes('state=success'));
-  const merge = lines.findIndex((l) => l.startsWith('pr merge 9') && l.includes('--auto') && l.includes('--squash') && l.includes('--match-head-commit abc123'));
+  const merge = lines.findIndex((l) => l.startsWith('pr merge 9') && l.includes('--auto') && l.includes('--squash') && l.includes('--match-head-commit abc123') && l.includes('--body Fixes #5'));
   assert.ok(status >= 0 && merge > status, 'the status comes first');
   assert.equal(f.calls[merge].token, 'APP');
   assert.equal(f.calls[status].token, 'APP', 'the status is posted with the App token, not the built-in one');
