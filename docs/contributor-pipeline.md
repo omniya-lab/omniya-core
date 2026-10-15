@@ -196,3 +196,4 @@ are read, because a list of bad files is never complete.
   take inputs by hand. See `.claude/skills/pipeline-change/SKILL.md`. A rehearsal
   from a branch cannot run the agent or the hand-off, because the environment
   `pipeline` refuses any ref but `testing`. Those are seen live after the merge.
+- Other names: `OWNER_LOGIN` and `BOT_LOGIN` are variables, defaulting to the repository owner and `omniya-bot`. `scripts/ci/render-identity.mjs` rewrites CODEOWNERS to match.
