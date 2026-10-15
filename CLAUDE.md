@@ -56,9 +56,9 @@ node --test test/unit/nemeth/parser.test.js
 ```
 
 The renderer imports a generated bundle, `src/renderer/editor/editor.bundle.js`
-(ProseMirror, built by `scripts/build-editor.mjs`, gitignored). `npm start`,
+(ProseMirror, built by `scripts/build/build-editor.mjs`, gitignored). `npm start`,
 `npm run test:e2e` and the `dist:*` scripts build it first through `pre*` hooks. If you run
-a test file with `node --test` directly, run `node scripts/build-editor.mjs` once first, or
+a test file with `node --test` directly, run `node scripts/build/build-editor.mjs` once first, or
 the app fails to start with a missing-module error.
 
 Run a single e2e test file (still needs concurrency=1):

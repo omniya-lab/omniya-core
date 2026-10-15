@@ -57,7 +57,7 @@ test('a clean fix with green checks is set to merge', () => {
 test('a fix may merge by itself only if every file is source, a test or a doc', () => {
   const outside = [
     '.github/workflows/pr-checks.yml', '.github/contributors.yml', '.github/prompts/agent.md',
-    'scripts/ci/hand-off.mjs', 'scripts/stage-liblouis.mjs', 'CODEOWNERS', '.github/CODEOWNERS',
+    'scripts/ci/hand-off.mjs', 'scripts/build/stage-liblouis.mjs', 'CODEOWNERS', '.github/CODEOWNERS',
     '.claude/settings.json', '.claude/skills/pipeline-change/SKILL.md', 'package.json', 'package-lock.json',
     'electron-builder.yml', '.npmrc', 'CLAUDE.md', 'test/corpus/nemeth-v1.json', 'test/corpus/sources/Nemeth_2022.txt'
   ];
