@@ -286,6 +286,7 @@ jobs:
           # four repairs in a row. Only for a manual run, and only that one bot. A person
           # who starts a run by hand is not a bot and is unaffected. An issue or a comment
           # still needs a person with write access, as before.
+          allowed_bots: ${{ github.event_name == 'workflow_dispatch' && 'github-actions' || '' }}
           # `--allowedTools` is not optional decoration. The action's default
           # tool preset has no Bash, no Edit and no Write, and its own docs say
           # so: "Claude does not have access to execute arbitrary Bash commands
