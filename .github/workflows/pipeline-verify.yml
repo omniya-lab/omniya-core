@@ -268,7 +268,7 @@ jobs:
             exit 0
           fi
           gh label create needs-owner --force --description "A person has to look at this" || true
-          gh pr edit "$PR" --add-label needs-owner
+          gh issue edit "$PR" --add-label needs-owner
           gh pr comment "$PR" --body "The automatic checks or the build are still red after 3 repair attempts, or the repair agent asked for a person. The maintainer has to look. Run: $RUN_URL"
           node scripts/ci/reply.mjs "$ISSUE" maintainer
           echo "green=false" >> "$GITHUB_OUTPUT"

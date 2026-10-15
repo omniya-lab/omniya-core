@@ -197,7 +197,7 @@ test('postReply posts exactly one comment, never edits, and labels only where th
     assert.ok(!calls.some((a) => a.includes('PATCH') || a.includes('-X')), `${state}: no edit`);
     assert.match(comments[0][1], /^repos\/a\/b\/issues\/22\/comments$/, state);
     assert.ok(comments[0].some((a) => a.startsWith(`body=${MARKER}`) || a.startsWith(`body=${QUESTION_MARKER}`)), state);
-    const labelled = calls.filter((a) => a[0] === 'issue' && a[1] === 'edit');
+    const labelled = calls.filter((a) => a[0] === 'issue' && a[1] === 'edit' && a.includes('--add-label'));
     assert.equal(labelled.length, LABELS[state] ? 1 : 0, `${state}: label`);
   }
 });
@@ -216,7 +216,7 @@ test('the label follows the state that was posted, not the one that was asked fo
   for (const [state, expected] of [['asked', 'needs-owner'], ['answered', 'needs-owner']]) {
     const calls = [];
     postReply({ issue: 5, state, repo: 'a/b', message: '' }, (args) => { calls.push(args); return ''; });
-    const labelled = calls.filter((a) => a[0] === 'issue' && a[1] === 'edit').map((a) => a[a.indexOf('--add-label') + 1]);
+    const labelled = calls.filter((a) => a[0] === 'issue' && a[1] === 'edit' && a.includes('--add-label')).map((a) => a[a.indexOf('--add-label') + 1]);
     assert.deepEqual(labelled, [expected], `${state} with no words`);
     assert.ok(calls.find((a) => a[0] === 'api').some((a) => /maintainer has been told/.test(a)), state);
     assert.ok(!calls.find((a) => a[0] === 'api').some((a) => /could not finish/.test(a)), state);
@@ -224,7 +224,16 @@ test('the label follows the state that was posted, not the one that was asked fo
   // And with words, a question still waits on the contributor.
   const calls = [];
   postReply({ issue: 5, state: 'asked', repo: 'a/b', message: 'Which key?' }, (args) => { calls.push(args); return ''; });
-  assert.deepEqual(calls.filter((a) => a[1] === 'edit').map((a) => a[a.indexOf('--add-label') + 1]), ['needs-info']);
+  assert.deepEqual(calls.filter((a) => a[1] === 'edit' && a.includes('--add-label')).map((a) => a[a.indexOf('--add-label') + 1]), ['needs-info']);
+});
+
+test('a state that moves the issue on takes a stale needs-owner off; a state that needs a person does not', () => {
+  for (const [state, cleared] of [['started', true], ['ready', true], ['answered', true], ['stuck', false], ['failed', false], ['sent-owner', false]]) {
+    const calls = [];
+    postReply({ issue: 5, state, repo: 'a/b', pr: 7, message: 'x' }, (args) => { calls.push(args); return ''; });
+    const removed = calls.some((a) => a[0] === 'issue' && a.includes('--remove-label') && a.includes('needs-owner'));
+    assert.equal(removed, cleared, state);
+  }
 });
 
 test('the pipeline puts the labels on, so the agent never has to', () => {

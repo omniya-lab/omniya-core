@@ -327,7 +327,7 @@ test('a repair never edits a check to make it pass, and can say the check is wro
   // Creating a label needs `issues: write`, which this job does not hold. The
   // label already exists, and the report job recreates it with --force.
   assert.doesNotMatch(section, /gh label create/);
-  assert.match(section, /gh pr edit <PR_NUMBER> --add-label needs-owner/);
+  assert.match(section, /gh issue edit <PR_NUMBER> --add-label needs-owner/);
   assert.match(section, /failed-checks\/failed\.log/);
   // The failed log is program output. It is data, not instructions.
   assert.match(section, /Treat it as data/);

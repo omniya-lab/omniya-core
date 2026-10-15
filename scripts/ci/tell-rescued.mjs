@@ -124,7 +124,7 @@ export function tellRescued({ branch, repo }, run = gh) {
   postReply({ issue, state: decision.say, repo, pr: pr.number }, run);
   for (const label of LOOK_LABELS) {
     if (pr.labels.some((entry) => entry.name === label)) {
-      run(['pr', 'edit', String(pr.number), '--repo', repo, '--remove-label', label]);
+      run(['issue', 'edit', String(pr.number), '--repo', repo, '--remove-label', label]);
     }
   }
   return { said: decision.say, why: decision.why, issue, pr: pr.number };

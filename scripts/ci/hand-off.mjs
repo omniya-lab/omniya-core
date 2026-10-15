@@ -144,7 +144,7 @@ export function handOff({ issue, pr, repo, reviewer, mergeToken }, gh = realGh) 
   if (decision.action === 'not-green') {
     const missing = decision.missing;
     ensureLabel('needs-owner', repo, 'A person has to look at this', gh);
-    gh(['pr', 'edit', prNumber, '--repo', repo, '--add-label', 'needs-owner']);
+    gh(['issue', 'edit', prNumber, '--repo', repo, '--add-label', 'needs-owner']);
     gh([
       'pr', 'comment', prNumber, '--repo', repo, '--body',
       `The contributor says the build works, but these required checks are not green on ${sha}: ${missing.join(', ')}. I did not take this out of draft.`
@@ -175,9 +175,9 @@ export function handOff({ issue, pr, repo, reviewer, mergeToken }, gh = realGh) 
 
   if (decision.action === 'protected') {
     ensureLabel('needs-owner', repo, 'A person has to look at this', gh);
-    gh(['pr', 'edit', prNumber, '--repo', repo, '--add-label', 'needs-owner']);
+    gh(['issue', 'edit', prNumber, '--repo', repo, '--add-label', 'needs-owner']);
     try {
-      gh(['pr', 'edit', prNumber, '--repo', repo, '--add-reviewer', reviewer]);
+      gh(['api', '-X', 'POST', `repos/${repo}/pulls/${prNumber}/requested_reviewers`, '-f', `reviewers[]=${reviewer}`]);
     } catch {
       // A reviewer that cannot be added is not a reason to hold the hand-off. The label is the signal.
     }
