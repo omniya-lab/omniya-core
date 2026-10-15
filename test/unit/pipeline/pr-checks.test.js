@@ -75,7 +75,8 @@ test('every gate job runs on macOS', () => {
   // suite drives a real Electron window. A job quietly moved to ubuntu to save
   // minutes would fail for reasons that look like the change under test.
   for (const { job } of REQUIRED) {
-    assert.match(workflow.jobs[job]['runs-on'], /^macos/, `${job} must run on macOS`);
+    // The label may come from the variable MAC_RUNNER (a mac label), and its default is macos-latest.
+    assert.match(workflow.jobs[job]['runs-on'], /^(macos|\$\{\{ vars\.MAC_RUNNER \|\| 'macos-latest' \}\}$)/, `${job} must run on macOS`);
   }
 });
 

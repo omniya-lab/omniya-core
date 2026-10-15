@@ -24,7 +24,7 @@ permissions:
 
 jobs:
   unit:
-    runs-on: macos-latest
+    runs-on: ${{ vars.MAC_RUNNER || 'macos-latest' }}
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
@@ -37,7 +37,7 @@ jobs:
       - run: npm test
 
   nemeth:
-    runs-on: macos-latest
+    runs-on: ${{ vars.MAC_RUNNER || 'macos-latest' }}
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
@@ -57,7 +57,7 @@ jobs:
       - run: node scripts/ci/nemeth-gate.mjs
 
   e2e:
-    runs-on: macos-latest
+    runs-on: ${{ vars.MAC_RUNNER || 'macos-latest' }}
     # macOS, not Linux: `scripts/stage-liblouis.mjs` supports darwin and win32
     # only, and the suite drives a real Electron window.
     #

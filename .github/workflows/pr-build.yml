@@ -32,7 +32,7 @@ permissions:
 
 jobs:
   pack-mac:
-    runs-on: macos-latest
+    runs-on: ${{ vars.MAC_RUNNER || 'macos-latest' }}
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
