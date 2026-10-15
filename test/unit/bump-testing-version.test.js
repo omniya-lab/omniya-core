@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { computeTestingVersion } from '../../scripts/bump-testing-version.mjs';
+import { computeTestingVersion } from '../../scripts/build/bump-testing-version.mjs';
 
 test('computes a monotonic alpha version from CI env', () => {
   const version = computeTestingVersion({ GITHUB_RUN_NUMBER: '42', GITHUB_SHA: 'ab12cd3ef456' });
