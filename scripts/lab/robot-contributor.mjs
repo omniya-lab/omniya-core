@@ -6,6 +6,11 @@
  *   fix     a clear bug report. The agent fixes it and opens a pull request.
  *   ask     a vague report. The agent must ask; the robot answers from a script;
  *           the fix still lands. Needs the planted bug (see lab-admin.mjs).
+ *   works-but          the fix is built; the author writes "it works but ..." The words go to
+ *                      the AGENT (a new bot reply, no hand-off, nothing merged).
+ *   stranger-confirm   the fix is built; a non-author writes a bare "it works". Nothing happens.
+ *   answer-to-question the agent asks a question; a bare "it works" in answer to it must NOT
+ *                      hand off (no comment, no run, no pull request). Then the fix still lands.
  *   design  a plain request for brand-new behaviour. The agent must refuse, the
  *           issue gets `needs-design`, ONE plain comment, and NO pull request.
  *
@@ -16,9 +21,9 @@
  *   bot, and a closed issue.
  *
  * Env: CONTRIB_GH_TOKEN (the author), GH_TOKEN (the non-author), GITHUB_REPOSITORY
- * or LAB_REPO. Options: --scenario, --fast, --poll-s N (default 12),
+ * or LAB_REPO. Options: --signoff bare|at-claude, --scenario, --fast, --poll-s N (default 12),
  * --timeout-min N (default 45), --non-author-wait-s N (default 150, 45 with --fast),
- * --json FILE (write the result). Exit 1 on any failure.
+ * --json FILE (write the result). --signoff at-claude writes the old "@claude it works". Exit 1 on any failure.
  */
 
 import { writeFileSync } from 'node:fs';
@@ -52,6 +57,21 @@ export const SCENARIOS = {
     ],
     merges: true,
     requireQuestion: true
+  },
+  'works-but': { report: FIX_REPORT, script: [], merges: false, variant: 'works-but' },
+  'stranger-confirm': { report: FIX_REPORT, script: [], merges: false, variant: 'stranger' },
+  'answer-to-question': {
+    report: {
+      title: 'Something is off with my notes',
+      body: 'One of my notes does not read right in the list. Please fix it.'
+    },
+    script: [
+      '@claude Thank you. It is the list of notes. A note whose first line is exactly eighty letters, all the letter a, is read with seventy nine letters and then three dots. When I make the line one letter shorter it reads in full.',
+      '@claude Yes. A line of exactly eighty letters should be read in full, with no dots.'
+    ],
+    merges: true,
+    requireQuestion: true,
+    bareAtQuestion: true
   },
   design: {
     // Bold is on the list of things the app does NOT have; adding it is the owner's call.
@@ -105,9 +125,12 @@ function fail(message) {
  */
 export async function run({
   scenario = 'fix', author, other, repo, base = 'testing',
-  timeoutMin = 45, pollS = 12, nonAuthorWaitS = 150, log = console.log
+  timeoutMin = 45, pollS = 12, nonAuthorWaitS = 150, signoff = 'bare', log = console.log
 } = {}) {
   const sc = SCENARIOS[scenario];
+  // What the contributor writes to say it works. `bare` is the new path (no agent);
+  // `at-claude` is the old one, kept so the same robot can time both.
+  const SAY = signoff === 'at-claude' ? '@claude it works' : 'it works';
   if (!sc) throw fail(`unknown scenario ${scenario}`);
   if (!author || !other || !repo) throw fail('need CONTRIB_GH_TOKEN, GH_TOKEN and GITHUB_REPOSITORY');
   const t0 = Date.now();
@@ -198,9 +221,9 @@ export async function run({
       pr = await findPr();
       if (!pr) return;
       before = (await botComments(n)).length;
-      await call(other, 'POST', `/repos/${repo}/issues/${n}/comments`, { body: '@claude it works' });
+      await call(other, 'POST', `/repos/${repo}/issues/${n}/comments`, { body: SAY });
       nonAuthorAt = Date.now();
-      step(`  fix pull request #${pr.number}: ${pr.html_url}; a non-author said "@claude it works"`);
+      step(`  fix pull request #${pr.number}: ${pr.html_url}; a non-author said "${SAY}"`);
     };
     for (;;) {
       const hit = await waitFor('a question or the build links', (cs) => {
@@ -213,6 +236,7 @@ export async function run({
       if (hit.ready) { linksComment = hit.ready; break; }
       if (answers >= 4) throw fail('the agent asked more than 4 questions');
       seenQuestions = hit.count;
+      if (sc.bareAtQuestion && answers === 0) await bareAnswerChecks(hit.question);
       const script = sc.script.length ? sc.script : ['@claude Please go ahead with what you understood.'];
       const reply = script[Math.min(answers, script.length - 1)];
       answers += 1;
@@ -242,10 +266,19 @@ export async function run({
     if (status.statuses.some((s) => s.context === 'contributor-tested' && s.state === 'success')) throw fail('a non-author "it works" set contributor-tested');
     step('5 ok: no merge, no auto-merge, no hand-off, no contributor-tested');
 
-    await call(author, 'POST', `/repos/${repo}/issues/${n}/comments`, { body: '@claude it works' });
-    step('6 the author said "@claude it works"');
+    if (sc.variant === 'stranger') {
+      step('5 ok: a stranger cannot confirm. Closing the rehearsal.');
+      await cleanUp(pr);
+      return result({ issue: n, pr: pr.number });
+    }
+    if (sc.variant === 'works-but') return await worksButChecks(pr);
+
+    await call(author, 'POST', `/repos/${repo}/issues/${n}/comments`, { body: SAY });
+    const saidAt = Date.now();
+    step(`6 the author said "${SAY}"`);
     await waitFor('the hand-off comment', (cs) => cs.find((c) => c.body.includes(WORDS.sent)));
-    step('6 the hand-off comment arrived');
+    const handoffS = Math.round((Date.now() - saidAt) / 1000);
+    step(`6 the hand-off comment arrived ${handoffS} s after the sign-off`);
 
     while (Date.now() < deadline) {
       const p = await call(author, 'GET', `/repos/${repo}/pulls/${pr.number}`);
@@ -253,15 +286,61 @@ export async function run({
       if (p.merged && p.base.ref === base && i.state === 'closed') {
         // Auto-merge merges as the App that turned it on. A person who merged it by hand proves nothing.
         if (!/\[bot\]$/.test(p.merged_by?.login ?? '')) throw fail(`merged by ${p.merged_by?.login}, not by auto-merge`);
-        step(`7 merged into ${base} (${p.merge_commit_sha}) and issue #${n} closed`);
+        const mergedS = Math.round((Date.now() - saidAt) / 1000);
+        step(`7 merged into ${base} (${p.merge_commit_sha}) and issue #${n} closed, ${mergedS} s after the sign-off`);
         await noteRuns();
-        return result({ issue: n, pr: pr.number, asked: answers });
+        return result({ issue: n, pr: pr.number, asked: answers, signoff: SAY, handoffS, mergedS });
       }
       if (p.state === 'closed' && !p.merged) throw fail('the pull request was closed without merging');
       await noteRuns();
       await sleep(pollS * 1000);
     }
     throw fail('timed out waiting for the merge and the closed issue');
+  }
+
+  async function cleanUp(pr) {
+    if (pr) await call(other, 'PATCH', `/repos/${repo}/pulls/${pr.number}`, { state: 'closed' }).catch(() => {});
+    await call(author, 'PATCH', `/repos/${repo}/issues/${n}`, { state: 'closed' }).catch(() => {});
+  }
+
+  // "it works but ...": more than the bare phrase, so the AGENT reads it. A new reply must
+  // come, it must not be the hand-off, and nothing may be set to merge.
+  async function worksButChecks(pr) {
+    const before = (await botComments(n)).length;
+    await call(author, 'POST', `/repos/${repo}/issues/${n}/comments`, { body: 'it works but the three dots are still read out when the line is eighty one letters long' });
+    step('6 the author said "it works but ..." (no @claude)');
+    const wait = Date.now();
+    const reply = await waitFor('a reply to "it works but"', (cs) => (cs.length > before ? cs[cs.length - 1] : null));
+    // Must not be the hand-off, and the commit must not be set to merge.
+    if (reply.body.includes(WORDS.sent)) throw fail('"it works but ..." was handed off as a confirmation');
+    const now = await call(author, 'GET', `/repos/${repo}/pulls/${pr.number}`);
+    const status = await call(author, 'GET', `/repos/${repo}/commits/${now.head.sha}/status`);
+    if (now.merged || now.auto_merge) throw fail('"it works but ..." turned on a merge');
+    if (status.statuses.some((s) => s.context === 'contributor-tested' && s.state === 'success')) throw fail('"it works but ..." set contributor-tested');
+    // An agent run must have read it: the agent job lives in a pipeline-followup run that took a while.
+    const all = await noteRuns();
+    const mine = all.filter((w) => w.event === 'issue_comment' && w.created_at >= new Date(wait - 5000).toISOString());
+    step(`6 ok: the reply came after ${Math.round((Date.now() - wait) / 1000)} s and is not a hand-off: ${reply.body.replace(/\s+/g, ' ').slice(0, 140)}`);
+    if (!mine.length) throw fail('no pipeline-followup run seen for the "it works but" comment');
+    await cleanUp(pr);
+    return result({ issue: n, pr: pr.number });
+  }
+
+  // A bare "it works" in reply to a bot QUESTION. No pull request exists yet, and the newest
+  // bot comment is a question. Nothing may happen: no comment, no pull request.
+  async function bareAnswerChecks(question) {
+    const before = (await botComments(n)).length;
+    const sinceIso = new Date().toISOString();
+    await call(author, 'POST', `/repos/${repo}/issues/${n}/comments`, { body: 'it works' });
+    step('  the author answered the question with a bare "it works"');
+    await sleep(Math.max(pollS * 1000, 45_000));
+    const all = await noteRuns();
+    const after = await botComments(n);
+    if (after.length !== before) throw fail(`a bare "it works" answering a question got a reply: ${after.at(-1).body.replace(/\s+/g, ' ').slice(0, 120)}`);
+    if (await findPr()) throw fail('a bare "it works" answering a question opened a fix');
+    const agentRuns = all.filter((w) => w.event === 'issue_comment' && w.created_at >= sinceIso && w.conclusion && w.conclusion !== 'success' && w.conclusion !== 'skipped');
+    if (agentRuns.length) throw fail('the bare "it works" run did not end cleanly');
+    step('  ok: a bare "it works" in answer to a question did nothing');
   }
 
   // Wait until the runs the non-author comment started have finished, but never less than
@@ -292,7 +371,8 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
     repo: process.env.GITHUB_REPOSITORY || process.env.LAB_REPO,
     timeoutMin: Number(opt('--timeout-min', 45)),
     pollS: Number(opt('--poll-s', 12)),
-    nonAuthorWaitS: Number(opt('--non-author-wait-s', fast ? 45 : 150))
+    nonAuthorWaitS: Number(opt('--non-author-wait-s', fast ? 45 : 150)),
+    signoff: opt('--signoff', 'bare')
   };
   const outcomes = await Promise.all(names.map((scenario) =>
     run({ ...common, scenario }).then(

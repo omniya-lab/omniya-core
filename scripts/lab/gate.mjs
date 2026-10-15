@@ -42,7 +42,7 @@ async function main() {
   const diff = opt('--diff');
   const branch = opt('--branch');
   if (!repo || (!diff && !branch)) {
-    console.error('usage: gate.mjs (--diff FILE | --branch NAME) [--scenarios ask,design,fix] [--fast] [--out FILE] [--keep]');
+    console.error('usage: gate.mjs (--diff FILE | --branch NAME) [--scenarios ask,design,fix,works-but,stranger-confirm,answer-to-question] [--signoff bare|at-claude] [--fast] [--out FILE] [--keep]');
     process.exit(2);
   }
   const dir = mkdtempSync(join(tmpdir(), 'gate-'));
@@ -97,7 +97,7 @@ async function main() {
     const common = {
       author: process.env.CONTRIB_GH_TOKEN, other: process.env.GH_TOKEN, repo,
       timeoutMin: Number(opt('--timeout-min', 45)), pollS: Number(opt('--poll-s', 12)),
-      nonAuthorWaitS: Number(opt('--non-author-wait-s', fast ? 45 : 150)), log: (l) => console.log(l)
+      nonAuthorWaitS: Number(opt('--non-author-wait-s', fast ? 45 : 150)), signoff: opt('--signoff', 'bare'), log: (l) => console.log(l)
     };
     const out = await Promise.all(scenarios.map((scenario) =>
       run({ ...common, scenario }).then((r) => ({ ok: true, ...r }), (e) => ({ ok: false, scenario, error: e.message, ...(e.partial ?? {}) }))
@@ -120,7 +120,7 @@ async function main() {
     ...(results.length ? [table(results.map((r) => `| ${r.scenario} | ${r.ok ? 'pass' : 'FAIL'} | ${r.seconds ?? '?'} | #${r.issue ?? '?'} | ${r.pr ? `#${r.pr}` : 'none'} |`))] : []),
     ...results.flatMap((r) => [
       '', `## ${r.scenario}: ${r.ok ? 'pass' : 'FAIL'}`, ...(r.ok ? [] : ['', `Reason: ${r.error}`]),
-      '', 'Steps:', ...(r.steps ?? []).map(([s, t]) => `- +${s}s ${t}`),
+      ...(r.handoffS != null ? ['', `Sign-off "${r.signoff}": hand-off comment after ${r.handoffS} s, merged and closed after ${r.mergedS} s.`] : []), '', 'Steps:', ...(r.steps ?? []).map(([s, t]) => `- +${s}s ${t}`),
       '', 'Live runs:', ...(r.runs ?? []).map((u) => `- ${u}`)
     ]),
     ''
