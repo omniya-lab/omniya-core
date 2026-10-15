@@ -31,7 +31,7 @@ test('the contributor is told the two phrases that drive the loop, and not to cl
   const [contributorHalf] = doc.split('## If you maintain this repository');
 
   assert.match(contributorHalf, /@claude/, 'the contributor half must name the word that starts a round');
-  assert.match(contributorHalf, /@claude it works/, 'and the phrase that says it is done');
+  assert.match(contributorHalf, /write: it works/, 'and the phrase that says it is done');
   assert.match(contributorHalf, /Do not close the issue/);
   assert.doesNotMatch(contributorHalf, /[Cc]losing the issue is what merges/, 'closing no longer merges anything');
   // And that the links do not change, because the alternative is her hunting for
