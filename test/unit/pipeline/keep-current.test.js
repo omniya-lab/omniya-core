@@ -194,11 +194,23 @@ test('the run that is not a push takes the retry once; a push only looks', () =>
 
   const take = fakeGh(prs);
   const taken = keepCurrent({ repo: 'a/b', mergeToken: 'APP', claim: true }, take.gh);
-  const edit = take.calls.find((c) => c.args[0] === 'issue');
-  assert.ok(edit.args.includes('--add-label') && edit.args.includes('pipeline-fault-retried'));
-  assert.ok(edit.args.includes('--remove-label') && edit.args.includes('pipeline-fault'));
-  assert.equal(edit.token, 'APP');
+  const edits = take.calls.filter((c) => c.args[0] === 'issue');
+  assert.ok(edits.some((e) => e.args.includes('--add-label') && e.args.includes('pipeline-fault-retried')));
+  assert.ok(edits.some((e) => e.args.includes('--remove-label') && e.args.includes('pipeline-fault')));
+  assert.ok(edits.every((e) => e.token === 'APP'));
   assert.deepEqual(taken.healed, [{ issue: '70', pr: '1', branch: 'claude/fix-70-x', heal: 'true' }]);
+});
+
+test('an old pull request that never had the fault label is still claimed (seen live: the removal failed and the run died)', () => {
+  const prs = [pr({ number: 1, labels: label('needs-owner') })];
+  const f = fakeGh(prs);
+  const gh = (args, opts) => {
+    if (args.includes('--remove-label')) throw new Error("'pipeline-fault' not found");
+    return f.gh(args, opts);
+  };
+  const out = keepCurrent({ repo: 'a/b', mergeToken: 'APP', claim: true }, (a, o) => (a[0] === 'api' && a[1].includes('comments') ? '{"body":"still red after 3 repair attempts. Run: https://github.com/a/b/actions/runs/5"}' : a[0] === 'api' && a[1].includes('/jobs') ? '{"name":"repair (1, 2, b) / repair-1 / agent","conclusion":"failure"}' : gh(a, o)));
+  assert.deepEqual(out.healed.map((h) => h.pr), ['1']);
+  assert.ok(f.calls.some((c) => c.args.includes('pipeline-fault-retried')));
 });
 
 test('a faulty pull request that also conflicts is handed on once, marked as a retry', () => {
