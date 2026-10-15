@@ -174,6 +174,8 @@ export async function run({ author, other, repo, base = 'testing', timeoutMin = 
     const p = await call(author, 'GET', `/repos/${repo}/pulls/${pr.number}`);
     const i = await call(author, 'GET', `/repos/${repo}/issues/${n}`);
     if (p.merged && p.base.ref === base && i.state === 'closed') {
+      // Auto-merge merges as the App that turned it on. A person who merged it by hand proves nothing.
+      if (!/\[bot\]$/.test(p.merged_by?.login ?? '')) throw fail(`merged by ${p.merged_by?.login}, not by auto-merge`);
       step(`7 merged into ${base} (${p.merge_commit_sha}) and issue #${n} closed`);
       await noteRuns();
       return { issue: n, pr: pr.number, runs: [...seenRuns.values()] };
