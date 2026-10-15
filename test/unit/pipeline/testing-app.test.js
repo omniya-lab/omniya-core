@@ -5,23 +5,33 @@ import test from 'node:test';
 import { load as loadYaml } from 'js-yaml';
 
 const workflow = loadYaml(readFileSync('.github/workflows/testing-app.yml', 'utf8'));
-const runOf = (job, name) => workflow.jobs[job].steps.find((s) => s.name?.startsWith(name))?.run ?? '';
+const publish = workflow.jobs.publish.steps.find((s) => s.name?.startsWith('Publish'))?.run ?? '';
 
-test('the two packaging jobs can both move the tag without one of them failing', () => {
-  // Measured on the run for the merge of #29. `pack-mac` and `pack-win` both
-  // force-push the same `testing-app` tag to the same commit at the same time.
-  // Git refuses the one that loses ("cannot lock ref"), and in `pack-mac` that
-  // push came BEFORE the upload, so the Mac zip was never published and the run
-  // was red. Earlier runs had simply been lucky.
-  const mac = runOf('pack-mac', 'Publish zip');
-  assert.match(mac, /git push origin testing-app --force \\\n\s*\|\| \[ "\$\(git ls-remote origin refs\/tags\/testing-app \| cut -f1\)" = "\$GITHUB_SHA" \]/);
-
-  const win = runOf('pack-win', 'Publish installer');
-  assert.match(win, /git push origin testing-app --force\n\s*if \(\$LASTEXITCODE -ne 0\)/);
-  assert.match(win, /ls-remote origin refs\/tags\/testing-app/);
-  assert.match(win, /throw "could not move the testing-app tag"/, 'a tag that is NOT where it should be is still a failure');
+test('one job moves the tag, through the API, and it fails when the tag cannot be moved', () => {
+  // Measured on the run for the merge of #29. `pack-mac` and `pack-win` both force-pushed the
+  // same `testing-app` tag to the same commit at the same time. Git refused the one that lost
+  // ("cannot lock ref"), and the Mac zip was never published. Now the publish job is the only
+  // one that touches the tag, and it has no checkout, so it moves the tag with the API.
+  assert.match(publish, /gh api --method PATCH "repos\/\$GH_REPO\/git\/refs\/tags\/testing-app" -f sha="\$GITHUB_SHA" -F force=true/);
+  assert.match(publish, /\|\| gh api --method POST "repos\/\$GH_REPO\/git\/refs" -f ref=refs\/tags\/testing-app/, 'a tag that is not there yet is created');
+  assert.doesNotMatch(publish, /git push|git tag/, 'no checkout, so no git');
+  for (const job of ['pack-mac', 'pack-win']) {
+    const text = JSON.stringify(workflow.jobs[job]);
+    assert.doesNotMatch(text, /testing-app"|git push|gh release/, `${job} publishes nothing`);
+  }
 });
 
-test('the upload still comes after the tag in both jobs, so a stuck tag still stops a half-published release', () => {
-  assert.ok(runOf('pack-mac', 'Publish zip').indexOf('git push origin testing-app') < runOf('pack-mac', 'Publish zip').indexOf('gh release upload'));
+test('the upload comes after the tag, so a stuck tag still stops a half-published release', () => {
+  assert.ok(publish.indexOf('refs/tags/testing-app') < publish.indexOf('gh release upload'));
+  const upload = publish.slice(publish.indexOf('gh release upload'));
+  for (const asset of ['builds/*.zip', 'builds/version.json', 'builds/*.exe', 'builds/*.exe.blockmap', 'builds/alpha.yml', '--clobber']) {
+    assert.ok(upload.includes(asset), `the upload names ${asset}`);
+  }
+});
+
+test('the alpha still gets the same files as before, from artifacts', () => {
+  const upload = (job) => workflow.jobs[job].steps.find((s) => s.uses?.startsWith('actions/upload-artifact'));
+  assert.deepEqual(upload('pack-mac').with.path.trim().split('\n'), ['dist/*.zip', 'dist/version.json']);
+  assert.deepEqual(upload('pack-win').with.path.trim().split('\n'), ['dist/*.exe', 'dist/*.exe.blockmap', 'dist/alpha.yml']);
+  assert.equal(upload('pack-win').with['if-no-files-found'], 'error');
 });
