@@ -344,7 +344,7 @@ Committed changes made after opening a file are saved back to that file. A napki
 - `src/main.js`, `src/preload.cjs`, and `src/main/` provide the secure Electron boundary, narrow bridge, MathML conversion, and local persistence.
 - `src/domain/model.js` contains state factories, validation, and immutable napkin operations. `src/domain/document.js` is the saved shape of a document.
 - `src/renderer/` contains the semantic page, restrained styling, application behavior, and local MathJax configuration. `src/renderer/editor/` is the Word-style editor, built on ProseMirror and bundled by `scripts/build-editor.mjs`.
-- `scripts/open-napkin.mjs` opens an existing napkin file in the normal application.
+- `scripts/dev/open-napkin.mjs` opens an existing napkin file in the normal application.
 - `test/unit/` covers model, persistence, MathML, and local assets; `test/e2e/` covers Electron workflows and accessibility acceptance; `test/screen-reader/` drives real screen readers in CI.
 - `docs/word-editor.md` is the design record for the editor and its keys.
 - `test/inspect.mjs` generates the editable example napkin file.
