@@ -70,3 +70,14 @@ test('the report passes every job result and the retry flag by env, and a green 
   assert.match(step.run, /heal\.mjs stuck/);
   assert.doesNotMatch(step.run, /\$\{\{/);
 });
+
+test('a retry speaks only while the newest thing the contributor was told is the maintainer reply', async () => {
+  const { newestState, stillWaiting } = await import('../../../scripts/ci/heal.mjs');
+  const reply = (state) => ({ body: `<!-- omniya-pipeline-reply -->\n<!-- omniya-pipeline-state ${state} -->\ntext` });
+  assert.equal(newestState([reply('ready'), { body: 'a person said hi' }, reply('maintainer')]), 'maintainer');
+  assert.equal(newestState([reply('maintainer'), reply('ready')]), 'ready', 'pipeline-rescued already spoke');
+  assert.equal(newestState([{ body: '<!-- omniya-pipeline-state maintainer --> but not from the pipeline' }]), '');
+  const gh = (comments) => () => comments.map((c) => JSON.stringify(c)).join('\n');
+  assert.equal(stillWaiting({ repo: 'o/r', issue: 1 }, gh([reply('maintainer')])), true);
+  assert.equal(stillWaiting({ repo: 'o/r', issue: 1 }, gh([reply('maintainer'), reply('revised')])), false);
+});
