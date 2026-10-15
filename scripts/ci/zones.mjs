@@ -43,7 +43,8 @@ function parse(pattern) {
   const dir = p.endsWith('/**');
   const base = dir ? p.slice(0, -3) : p;
   if (!base || base.startsWith('/') || base.includes('*') || base.includes('..')) throw new Error(`zones.json: bad pattern ${pattern}`);
-  return { dir, base, weight: base.split('/').length * 2 + (dir ? 0 : 1) };
+  const written = String(pattern).normalize('NFKC');
+  return { dir, base, written: dir ? written.slice(0, -3) : written, weight: base.split('/').length * 2 + (dir ? 0 : 1) };
 }
 
 /** Every pattern of the map, with its zone. Throws when one pattern is in two zones. */
@@ -84,7 +85,14 @@ export function zoneOf(file, rules = RULES) {
     // happens, the stricter zone wins.
     else if (rule.weight === best.weight && NEEDS.indexOf(NEED_OF[rule.zone]) > NEEDS.indexOf(NEED_OF[best.zone])) best = rule;
   }
-  return best ? { zone: best.zone, pattern: best.pattern } : { zone: 'owner', pattern: null };
+  if (!best) return { zone: 'owner', pattern: null };
+  // The deny zones match in lower case, so `test/Corpus` cannot slip past `test/corpus`. AUTOMATIC does
+  // not: `Src/a.js` is a different path on Linux, and a path that only looks like a safe one is the owner's.
+  if (best.zone === 'automatic') {
+    const exact = String(file).normalize('NFKC');
+    if (!(best.dir ? exact.startsWith(`${best.written}/`) : exact === best.written)) return { zone: 'owner', pattern: null };
+  }
+  return { zone: best.zone, pattern: best.pattern };
 }
 
 /**

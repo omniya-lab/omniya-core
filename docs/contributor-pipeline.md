@@ -156,8 +156,8 @@ How much it needs from you depends on what the change touches.
 
 | Tier | The change touches | What it needs |
 |---|---|---|
-| Automatic | Docs, prompts, tests, ordinary scripts and workflows | Nothing. It merges when green. |
-| Ship it | A secret, a token, a write permission, an environment, a release, a delete or force, a trigger that runs with secrets, or a file that defines green or who may merge | Your words, passed as `owner_said` and written to the run summary. The workflow cannot prove you typed them. |
+| Automatic | Docs only. Everything else of the automation is in the ship-it zone of `scripts/ci/zones.json` | Nothing. It merges when green. |
+| Ship it | The ship-it zone: `.github/workflows/**`, `.github/prompts/**`, `scripts/ci/**`, `.claude/**`, `package.json`, the lockfile, `electron-builder.yml`, `test/unit/pipeline/**`. Judged by path, never by a line |  Your words, passed as `owner_said` and written to the run summary. The workflow cannot prove you typed them. |
 | Lock | The files that decide who may merge what: the shipper, its tests, the manifest, the strictness check | Your words AND a strictness check: the new rules must be at least as strict as the old ones on thousands of made-up cases, run with no secrets. A change that loosens the lock on purpose fails, and needs you in the merge box (Approve, then Merge). |
 | Your approval | `package.json`, CODEOWNERS, anything else. (App code on a `product/<slug>` branch is not here: your words ship it, see `docs/shipping-app-changes.md`.) | Click **Approve**, then **Merge**. The box turns green only after your approval of this commit and green checks. Never tick "bypass rules". |
 
@@ -166,7 +166,7 @@ starts with `pipeline/`, and only you and the session account pushed to it. The 
 `unit`, `nemeth`, `e2e` and both builds are green on that exact commit, as jobs of
 `pr-checks.yml` and `pr-build.yml`. No test is deleted or moved.
 Every file is on the allow list. Scripts are read by their changed lines, workflows also as YAML.
-`scripts/ci/protection.json` lists the protected files. A test fails on a new sensitive line.
+`scripts/ci/zones.json` is the one map from a path to its zone (automatic, ship-it, goalposts, lock; any other path is the owner's). The contributor hand-off and both shipper lanes read it. `scripts/ci/protection.json` keeps the sizes and the sensitive-line baseline.
 
 ### Setting up, adding a contributor, and getting unstuck
 
