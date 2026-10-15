@@ -1,16 +1,24 @@
 name: testing-app
 
+# The rolling alpha of `testing`. Two kinds of job, and the split is the point.
+# A BUILD job runs the repository's own scripts (`npm ci`, `npm run dist:*`) with a
+# read-only token and no secret, and hands its files on as an artifact. The PUBLISH job
+# holds the write token, runs nothing from the repository (no checkout, no npm) and only
+# calls `gh`. A build script therefore never runs where there is a token to take.
+# `test/unit/pipeline/zones.test.js` holds that rule.
 on:
   push:
     branches: [testing]
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   pack-mac:
     runs-on: ${{ vars.MAC_RUNNER || 'macos-latest' }}
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -24,9 +32,58 @@ jobs:
       - name: Write version manifest
         run: |
           node -e "const fs=require('fs'); const pkg=JSON.parse(fs.readFileSync('package.json','utf8')); fs.writeFileSync('dist/version.json', JSON.stringify({version: pkg.version}))"
-      - name: Publish zip + version manifest to testing-app prerelease
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-mac
+          path: |
+            dist/*.zip
+            dist/version.json
+          if-no-files-found: error
+
+  pack-win:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run version:bump
+      - run: npm run dist:win
+      # Top-level dist/* only: dist/win-unpacked holds the NSIS target's intermediate build
+      # (bundled liblouis/elevate helpers, the raw unpacked app exe) which must never be
+      # uploaded as if it were a release asset. alpha.yml (not the literal "latest.yml", and
+      # not a *.yml wildcard - that also matches electron-builder's own builder-debug.yml
+      # dump) because bump-testing-version.mjs always tags testing builds with the "alpha"
+      # prerelease channel, so electron-builder names the update-info file alpha.yml.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-win
+          path: |
+            dist/*.exe
+            dist/*.exe.blockmap
+            dist/alpha.yml
+          if-no-files-found: error
+
+  # Holds the write token and runs nothing from the repository: no checkout, no npm, only gh.
+  publish:
+    needs: [pack-mac, pack-win]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: builds
+          merge-multiple: true
+      - name: Publish the zip, the installer and the update metadata to the testing-app prerelease
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
         run: |
           # The notes are rewritten on EVERY build, not just the first. They used
           # to sit behind `gh release view ... ||`, so the body written when the
@@ -46,54 +103,8 @@ jobs:
           gh release view testing-app >/dev/null 2>&1 \
             || gh release create testing-app --prerelease --title "Testing alpha (unsigned)" --notes "$NOTES" --target "$GITHUB_SHA"
           gh release edit testing-app --notes "$NOTES"
-          git tag -f testing-app "$GITHUB_SHA"
-          # `pack-win` moves this same tag to this same commit at the same time. Git
-          # refuses whichever push loses ("cannot lock ref"), and that failure used
-          # to stop this job BEFORE the upload below, so the Mac zip was never
-          # published and the run was red. If the tag is already where it should
-          # be, the other job did the work and there is nothing to fail about.
-          git push origin testing-app --force \
-            || [ "$(git ls-remote origin refs/tags/testing-app | cut -f1)" = "$GITHUB_SHA" ]
-          gh release upload testing-app dist/*.zip dist/version.json --clobber
-
-  pack-win:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: npm
-      - run: npm ci
-      - run: npm run version:bump
-      - run: npm run dist:win
-      - name: Publish installer + update metadata to testing-app prerelease
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        shell: pwsh
-        run: |
-          gh release view testing-app >$null 2>&1; if ($LASTEXITCODE -ne 0) { gh release create testing-app --prerelease --title "Testing alpha (unsigned)" --notes "Rolling unsigned builds for the testing branch. Windows installs auto-update in the background; macOS testers get an in-app notice to re-download. Apple Silicon Mac and Windows x64 only." --target $env:GITHUB_SHA }
-          git tag -f testing-app $env:GITHUB_SHA
-          # `pack-mac` moves this same tag to this same commit at the same time. Git
-          # refuses whichever push loses ("cannot lock ref"). If the tag is already
-          # where it should be, the other job did the work.
-          git push origin testing-app --force
-          if ($LASTEXITCODE -ne 0) {
-            $remote = (git ls-remote origin refs/tags/testing-app) -split "`t" | Select-Object -First 1
-            if ($remote -ne $env:GITHUB_SHA) { throw "could not move the testing-app tag" }
-            $global:LASTEXITCODE = 0
-          }
-          # Top-level dist\* only (no -Recurse): dist\win-unpacked holds the NSIS
-          # target's intermediate build (bundled liblouis/elevate helpers, the raw
-          # unpacked app exe) which must never be uploaded as if it were a release asset.
-          # alpha.yml (not the literal "latest.yml", and not a *.yml wildcard - that
-          # also matches electron-builder's own builder-debug.yml dump) because
-          # bump-testing-version.mjs always tags testing builds with the "alpha"
-          # prerelease channel, so electron-builder names the update-info file
-          # alpha.yml specifically.
-          $assets = Get-ChildItem -Path "dist\*" -Include *.exe,*.exe.blockmap,alpha.yml
-          if (-not $assets) { throw "No installer/update assets found in dist" }
-          foreach ($asset in @($assets)) {
-            gh release upload testing-app $asset.FullName --clobber
-            if ($LASTEXITCODE -ne 0) { throw "gh release upload failed for $($asset.FullName)" }
-          }
+          # Move the tag to this commit through the API, so no checkout is needed. One job
+          # moves it now, so the two builds no longer race for it.
+          gh api --method PATCH "repos/$GH_REPO/git/refs/tags/testing-app" -f sha="$GITHUB_SHA" -F force=true >/dev/null \
+            || gh api --method POST "repos/$GH_REPO/git/refs" -f ref=refs/tags/testing-app -f sha="$GITHUB_SHA" >/dev/null
+          gh release upload testing-app builds/*.zip builds/version.json builds/*.exe builds/*.exe.blockmap builds/alpha.yml --clobber
