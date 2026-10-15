@@ -24,6 +24,10 @@
  *              is the one lock a session cannot open, because a session could
  *              otherwise loosen the thing that decides what it may ship.
  *
+ * THE PRODUCT LANE: a `product/<slug>` branch is judged by the same checks as below, then
+ * by `product-lane.mjs`, which allows only `src/`, `test/` and `docs/` (never the corpus or
+ * the pipeline's tests) and needs the owner's "ship it" naming the PR. Same lock, same merge.
+ *
  * What makes the automatic tier safe to run without a person:
  *   - It runs from `testing` only (the environment `pipeline` allows no other
  *     ref), so a pull request cannot edit the workflow that ships it.
@@ -63,6 +67,7 @@ import { appendFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
 import { gh as realGh, requireNumber, setOutputs } from './gh.mjs';
+import { PRODUCT_PREFIX, decideProduct, readModes } from './product-lane.mjs';
 
 export const BRANCH_PREFIX = 'pipeline/';
 
@@ -79,7 +84,10 @@ export const CHECKS_BY_WORKFLOW = {
 export const BYPASS_FILES = [
   '.github/workflows/pipeline-ship.yml',
   'scripts/ci/ship-pipeline-pr.mjs',
-  'test/unit/pipeline/ship-pipeline-pr.test.js'
+  'test/unit/pipeline/ship-pipeline-pr.test.js',
+  // The product zone. Changing it changes what a word can ship.
+  'scripts/ci/product-lane.mjs',
+  'test/unit/pipeline/product-lane.test.js'
 ];
 
 /**
@@ -244,12 +252,13 @@ export function notGreen(runs, jobsOf) {
  * @param {string} [input.ownerSaid] the owner's own words, when a "ship it" was given
  * @returns {{ship: true, tier: 'automatic'|'ship-it', why: string[]} | {ship: false, reason: string}}
  */
-export function decide({ pr, sha, allowedAuthors, missing, pushers = [], pushCount = 0, files = [], ownerSaid = '' }) {
+export function decide({ pr, sha, allowedAuthors, missing, pushers = [], pushCount = 0, files = [], ownerSaid = '', modes = null }) {
   if (pr.state !== 'OPEN') return { ship: false, reason: 'the pull request is not open' };
   if (pr.baseRefName !== 'testing') return { ship: false, reason: 'it does not go into testing' };
   if (pr.isCrossRepository !== false) return { ship: false, reason: 'it comes from a fork' };
-  if (!String(pr.headRefName).startsWith(BRANCH_PREFIX)) {
-    return { ship: false, reason: `the branch does not start with ${BRANCH_PREFIX}` };
+  const product = String(pr.headRefName).startsWith(PRODUCT_PREFIX);
+  if (!product && !String(pr.headRefName).startsWith(BRANCH_PREFIX)) {
+    return { ship: false, reason: `the branch starts with neither ${BRANCH_PREFIX} nor ${PRODUCT_PREFIX}` };
   }
   if (!allowedAuthors.includes(pr.author?.login)) {
     return { ship: false, reason: "its author is not the owner or the owner's session account" };
@@ -264,6 +273,11 @@ export function decide({ pr, sha, allowedAuthors, missing, pushers = [], pushCou
   }
   if (pr.changedFiles !== files.length || files.length >= MAX_FILES) {
     return { ship: false, reason: 'the list of changed files is not complete, so a protected file could be hidden' };
+  }
+
+  // The product lane: the same checks above, then its own file rule (`product-lane.mjs`).
+  if (product) {
+    return decideProduct({ files, modes, missing, number: pr.number, ownerSaid, says: /\bship\s*it\b/i.test(String(ownerSaid)) });
   }
 
   const names = files.flatMap((f) => [f.filename, f.previous_filename]).filter(Boolean);
@@ -313,7 +327,7 @@ export function ship({ pr, sha, repo, allowedAuthors, mergeToken, ownerSaid = ''
   const view = JSON.parse(
     gh([
       'pr', 'view', number, '--repo', repo, '--json',
-      'state,baseRefName,isCrossRepository,headRefName,headRefOid,author,isDraft,mergeable,changedFiles'
+      'number,state,baseRefName,isCrossRepository,headRefName,headRefOid,author,isDraft,mergeable,changedFiles'
     ])
   );
   // Runs are found by commit, and each is tied to the workflow FILE it came from.
@@ -340,7 +354,7 @@ export function ship({ pr, sha, repo, allowedAuthors, mergeToken, ownerSaid = ''
       '--jq', '[.[] | {a: .actor.login}]'
     ])
   );
-  const files = gh(['api', `repos/${repo}/pulls/${number}/files`, '--paginate', '--jq', '.[] | {filename, previous_filename, status, patch, changes}'])
+  const files = gh(['api', `repos/${repo}/pulls/${number}/files`, '--paginate', '--jq', '.[] | {filename, previous_filename, status, patch, changes, additions, deletions}'])
     .split('\n')
     .filter(Boolean)
     .map((line) => JSON.parse(line));
@@ -353,7 +367,8 @@ export function ship({ pr, sha, repo, allowedAuthors, mergeToken, ownerSaid = ''
     pushers: pushes.map((push) => push.a),
     pushCount: pushes.length,
     files,
-    ownerSaid
+    ownerSaid,
+    modes: view.headRefName.startsWith(PRODUCT_PREFIX) ? readModes({ repo, sha, gh }) : null
   });
   if (!decision.ship) return { shipped: false, reason: decision.reason };
 
@@ -391,7 +406,7 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
   // The log of who allowed what. For the ship-it tier, the owner's own words.
   if (process.env.GITHUB_STEP_SUMMARY) {
     const lines = result.shipped
-      ? [`Shipped #${pr} (${result.tier}).`, ...(result.why ?? []).map((w) => `- ${w}`), ...(result.tier === 'ship-it' ? [`The owner said: ${JSON.stringify(ownerSaid)}`] : [])]
+      ? [`Shipped #${pr} (${result.tier}).`, ...(result.why ?? []).map((w) => `- ${w}`), ...(result.tier !== 'automatic' ? [`The owner said: ${JSON.stringify(ownerSaid)}`] : [])]
       : [`Did not ship #${pr}: ${result.reason}`];
     appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${lines.join('\n')}\n`);
   }
