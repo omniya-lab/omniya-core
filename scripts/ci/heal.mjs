@@ -23,6 +23,7 @@
  *
  * Usage (needs GH_TOKEN and GITHUB_REPOSITORY):
  *   node scripts/ci/heal.mjs clear <pull-request>
+ *   node scripts/ci/heal.mjs waiting <issue>      tell=yes while the newest reply is still `maintainer`
  *   RESULTS="success failure skipped" HEAL=true node scripts/ci/heal.mjs stuck <pull-request>
  *     prints `tell=yes` when the contributor has not been told yet, `tell=no` when they have
  */
@@ -30,6 +31,7 @@
 import { pathToFileURL } from 'node:url';
 
 import { gh as realGh, requireNumber } from './gh.mjs';
+import { MARKER } from './reply.mjs';
 
 export const FAULT = 'pipeline-fault';
 export const RETRIED = 'pipeline-fault-retried';
@@ -85,6 +87,28 @@ export function legacyFault({ repo, pr }, gh = realGh) {
   }
 }
 
+/**
+ * The state word of the newest comment this pipeline wrote on an issue (line 2 of the comment,
+ * which only `reply.mjs` writes), or ''.
+ * @param {Array<{body: string}>} comments oldest first
+ */
+export function newestState(comments) {
+  const mine = comments.filter((c) => String(c.body ?? '').startsWith(MARKER));
+  const match = /^<!-- omniya-pipeline-state ([a-z-]+) -->$/m.exec(mine.at(-1)?.body ?? '');
+  return match ? match[1] : '';
+}
+
+/**
+ * A retry that goes green must not talk twice. `pipeline-rescued.yml` also speaks when a stuck
+ * pull request turns green, and it speaks first or second depending on which workflow ends first.
+ * So the retry speaks only while the newest thing the contributor was told is still the
+ * `maintainer` reply.
+ */
+export function stillWaiting({ repo, issue }, gh = realGh) {
+  const lines = gh(['api', `repos/${repo}/issues/${issue}/comments`, '--paginate', '--jq', '.[]|{body}']).split('\n').filter(Boolean);
+  return newestState(lines.map((line) => JSON.parse(line))) === 'maintainer';
+}
+
 /** `label create` fails when the label exists. That is fine: it is there. */
 function ensureLabel(gh, repo, name, description, token) {
   try {
@@ -135,8 +159,11 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
     const { fault, tell } = stuck({ repo, pr, results, retry: process.env.HEAL === 'true' });
     console.error(fault ? 'a pipeline job failed: marked as a fault' : 'no job failed: a person has to look');
     console.log(`tell=${tell ? 'yes' : 'no'}`);
+  } else if (command === 'waiting') {
+    // heal.mjs waiting <issue>: prints tell=yes while the contributor's newest word is still `maintainer`
+    console.log(`tell=${stillWaiting({ repo, issue: requireNumber(pr, 'issue number') }) ? 'yes' : 'no'}`);
   } else {
-    console.error('usage: heal.mjs clear|stuck <pull-request>');
+    console.error('usage: heal.mjs clear|stuck|waiting <number>');
     process.exit(2);
   }
 }
