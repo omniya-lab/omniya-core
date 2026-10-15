@@ -16,7 +16,9 @@ name: pipeline-keep-current
 #
 # A pull request that already waits on a person is left alone. A repair that failed
 # three times would only fail a fourth time on the next push, and every try spends
-# the maintainer's own quota.
+# the maintainer's own quota. One kind is not left alone: a pull request stuck by a
+# FAULT of the pipeline itself (`pipeline-fault`, see `scripts/ci/heal.mjs`) gets ONE
+# retry, taken by the run that is not a push. Green clears the labels.
 on:
   push:
     branches: [testing]
@@ -44,6 +46,7 @@ jobs:
     environment: pipeline
     timeout-minutes: 15
     permissions:
+      actions: read
       contents: read
       pull-requests: read
     outputs:
@@ -64,6 +67,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           MERGE_TOKEN: ${{ steps.app.outputs.token }}
           PR_NUMBER: ${{ inputs.pr_number }}
+          # A push only looks. The run it starts is the one that takes the retry.
+          CLAIM: ${{ github.event_name != 'push' }}
         run: node scripts/ci/keep-current.mjs
 
   # The agent cannot run in a run that a push started: the action accepts issue
@@ -121,3 +126,4 @@ jobs:
       branch: ${{ matrix.item.branch }}
       message: ''
       reply_state: revised
+      heal: ${{ matrix.item.heal }}
