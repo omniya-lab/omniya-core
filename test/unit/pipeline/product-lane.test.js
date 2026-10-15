@@ -57,7 +57,7 @@ test('a path that is deep, or has dots, dashes and digits inside a name, is fine
 test('refuses every file outside src, test and docs, whatever else is in the pull request', () => {
   const outside = [
     '.github/workflows/pipeline-agent.yml', '.github/workflows/anything.yml', '.github/CODEOWNERS', '.github/contributors.yml',
-    'package.json', 'package-lock.json', 'electron-builder.yml', 'scripts/ci/hand-off.mjs', 'scripts/build-editor.mjs',
+    'package.json', 'package-lock.json', 'electron-builder.yml', 'scripts/ci/hand-off.mjs', 'scripts/build/build-editor.mjs',
     '.claude/skills/pipeline-change/SKILL.md', '.claude/settings.json', 'CLAUDE.md', 'README.md', 'LICENSE', '.gitignore', '.npmrc', 'CODEOWNERS'
   ];
   for (const path of outside) {

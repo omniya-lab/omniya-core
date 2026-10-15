@@ -71,7 +71,7 @@ test('the gate cannot write to the repository', () => {
 });
 
 test('every gate job runs on macOS', () => {
-  // `scripts/stage-liblouis.mjs` supports darwin and win32 only, and the e2e
+  // `scripts/build/stage-liblouis.mjs` supports darwin and win32 only, and the e2e
   // suite drives a real Electron window. A job quietly moved to ubuntu to save
   // minutes would fail for reasons that look like the change under test.
   for (const { job } of REQUIRED) {
