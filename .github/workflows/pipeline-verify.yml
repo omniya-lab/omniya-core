@@ -56,6 +56,11 @@ on:
         required: false
         type: string
         default: ready
+      # `true` when this is the one automatic retry of a pipeline fault (`heal.mjs`).
+      heal:
+        required: false
+        type: string
+        default: ''
     outputs:
       green:
         description: true when the last check and build passed
@@ -256,6 +261,9 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           REPLY_STATE: ${{ inputs.reply_state }}
           MESSAGE: ${{ inputs.message }}
+          # Every job result, so a job that FAILED can be told from one that asked for a person.
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+          HEAL: ${{ inputs.heal }}
         run: |
           set -euo pipefail
           final=""
@@ -263,12 +271,12 @@ jobs:
             if [ -n "$v" ]; then final="$v"; break; fi
           done
           if [ "$final" = "true" ]; then
+            node scripts/ci/heal.mjs clear "$PR"
             node scripts/ci/reply.mjs "$ISSUE" "$REPLY_STATE" "$PR"
             echo "green=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          gh label create needs-owner --force --description "A person has to look at this" || true
-          gh issue edit "$PR" --add-label needs-owner
+          tell="$(node scripts/ci/heal.mjs stuck "$PR" | sed -n 's/^tell=//p')"
           gh pr comment "$PR" --body "The automatic checks or the build are still red after 3 repair attempts, or the repair agent asked for a person. The maintainer has to look. Run: $RUN_URL"
-          node scripts/ci/reply.mjs "$ISSUE" maintainer
+          if [ "$tell" = "yes" ]; then node scripts/ci/reply.mjs "$ISSUE" maintainer; fi
           echo "green=false" >> "$GITHUB_OUTPUT"
