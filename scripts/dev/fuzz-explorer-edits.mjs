@@ -1,6 +1,6 @@
 // Try to break r, a and o (replace, append, prepend) while reading an equation by parts.
 //
-//   node scripts/fuzz-explorer-edits.mjs [seed] [rounds]
+//   node scripts/dev/fuzz-explorer-edits.mjs [seed] [rounds]
 //
 // The check is one rule, not a list of cases: after ANY edit, the equation must
 // be exactly what a fresh parse of the same expression gives. The explorer's
@@ -17,11 +17,11 @@ import { mkdtemp } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-import { canonicalizeMathML, parseMathML, serializeMathML, structuralEquivalent } from '../src/domain/math-tree.js';
-import { convertLatexToMathML } from '../src/main/mathml.js';
+import { canonicalizeMathML, parseMathML, serializeMathML, structuralEquivalent } from '../../src/domain/math-tree.js';
+import { convertLatexToMathML } from '../../src/main/mathml.js';
 import {
   DOC_END, chooseMethod, enterExplorer, focusDocument, getMathNodes, insertEquation, launchApp, press, settle
-} from '../test/e2e/launch-electron.js';
+} from '../../test/e2e/launch-electron.js';
 
 const seed = Number(process.argv[2] ?? Date.now() % 100000);
 const rounds = Number(process.argv[3] ?? 12);
