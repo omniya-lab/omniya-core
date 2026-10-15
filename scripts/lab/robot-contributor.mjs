@@ -131,7 +131,7 @@ export async function run({
   let issueNumber;
   const gaveUp = (comments) => comments.find((c) => [WORDS.failed, WORDS.maintainer, WORDS.stuck].some((w) => c.body.includes(w)));
   // Poll until `find(comments)` returns something. Fails fast on a bot give-up comment.
-  const waitFor = async (what, find) => {
+  const waitFor = async (what, find, tick) => {
     while (Date.now() < deadline) {
       const comments = await botComments(issueNumber);
       const hit = find(comments);
@@ -139,6 +139,7 @@ export async function run({
       const bad = gaveUp(comments);
       if (bad) throw fail(`the bot gave up while waiting for ${what}: ${bad.body.replace(/\s+/g, ' ').slice(0, 200)}`);
       await noteRuns();
+      if (tick) await tick();
       await sleep(pollS * 1000);
     }
     throw fail(`timed out waiting for ${what}`);
@@ -189,6 +190,18 @@ export async function run({
     let linksComment;
     let pr;
     let nonAuthorAt;
+    let before = 0;
+    // As soon as the fix pull request exists, a second person says it works. The checks and
+    // the build run while that comment sits, so the check adds no wall time.
+    const earlyNonAuthor = async () => {
+      if (nonAuthorAt) return;
+      pr = await findPr();
+      if (!pr) return;
+      before = (await botComments(n)).length;
+      await call(other, 'POST', `/repos/${repo}/issues/${n}/comments`, { body: '@claude it works' });
+      nonAuthorAt = Date.now();
+      step(`  fix pull request #${pr.number}: ${pr.html_url}; a non-author said "@claude it works"`);
+    };
     for (;;) {
       const hit = await waitFor('a question or the build links', (cs) => {
         const q = cs.filter((c) => c.body.startsWith(WORDS.question));
@@ -196,7 +209,7 @@ export async function run({
         if (ready) return { ready };
         if (q.length > seenQuestions) return { question: q[q.length - 1], count: q.length };
         return null;
-      });
+      }, earlyNonAuthor);
       if (hit.ready) { linksComment = hit.ready; break; }
       if (answers >= 4) throw fail('the agent asked more than 4 questions');
       seenQuestions = hit.count;
@@ -216,18 +229,9 @@ export async function run({
       throw fail('the build comment has a bare address, which a screen reader spells out');
     }
     step(`4 build links seen: ${links.join(' ')}`);
-    pr = await findPr();
+    await earlyNonAuthor();
     if (!pr) throw fail(`no claude/fix-* pull request says "Fixes #${n}"`);
-    step(`  fix pull request #${pr.number}: ${pr.html_url}`);
-
-    // A second person says it works. Nothing may be handed off or merged. The wait for
-    // that is the time the comment has been there, so it is posted as early as the fix
-    // pull request exists, and the checks run while it sits: no wall time is added.
-    // (Here it comes after the links; see nonAuthorEarly below for the overlap.)
-    const before = (await botComments(n)).length;
-    await call(other, 'POST', `/repos/${repo}/issues/${n}/comments`, { body: '@claude it works' });
-    nonAuthorAt = Date.now();
-    step(`5 a non-author said "@claude it works"; waiting up to ${nonAuthorWaitS} s to see nothing happen`);
+    step(`5 waiting up to ${nonAuthorWaitS} s since the non-author comment to see nothing happen`);
     await waitQuietAfter(nonAuthorAt, nonAuthorWaitS);
     const after = await botComments(n);
     const now = await call(author, 'GET', `/repos/${repo}/pulls/${pr.number}`);
