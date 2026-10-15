@@ -19,7 +19,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -54,6 +54,9 @@ async function main() {
   sh(dir, 'git', 'checkout', '-q', '-B', 'gate', original);
   sh(dir, 'git', 'config', 'user.name', 'omniya-lab-agent');
   sh(dir, 'git', 'config', 'user.email', 'lab-agent@users.noreply.github.com');
+
+  // The unit tests need js-yaml and friends. Reuse this checkout's modules instead of a slow install.
+  if (existsSync(resolve('node_modules'))) symlinkSync(resolve('node_modules'), join(dir, 'node_modules'));
 
   const notes = [];
   let failedBefore = null;
