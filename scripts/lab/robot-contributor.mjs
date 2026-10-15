@@ -372,7 +372,7 @@ export async function run({
     const wait = Date.now();
     const reply = await waitFor('a reply to "it works but"', (cs) => (cs.length > before ? cs[cs.length - 1] : null));
     // Must not be the hand-off, and the commit must not be set to merge.
-    if (reply.body.includes(WORDS.sent)) throw fail('"it works but ..." was handed off as a confirmation');
+    if (/omniya-pipeline-state sent/.test(reply.body)) throw fail('"it works but ..." was handed off as a confirmation');
     const now = await call(author, 'GET', `/repos/${repo}/pulls/${pr.number}`);
     const status = await call(author, 'GET', `/repos/${repo}/commits/${now.head.sha}/status`);
     if (now.merged || now.auto_merge) throw fail('"it works but ..." turned on a merge');
