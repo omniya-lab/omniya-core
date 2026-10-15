@@ -13,7 +13,12 @@ name: pipeline-ship
 #   ship it    touches a secret, a permission, a release, a delete, or what
 #              "green" means. Needs `owner_said`, the owner's own words. They go
 #              in the run summary. This cannot prove the owner typed them.
-#   bypass     changes this shipper. Refused. Only the owner's click merges it.
+#   lock       changes the files that decide who may merge what (this one, the
+#              shipper, the manifest, the strictness check). Needs `owner_said` AND the
+#              strictness check: the old and the new rules are asked the same made-up
+#              questions, in a job with no secrets, and the new answers must be at
+#              least as strict. A change that makes the lock looser fails on purpose.
+#              No click in the browser, by the owner's decision on 2026-10-14.
 #
 #   gh workflow run pipeline-ship.yml --ref testing -f pr_number=94 -f sha=<head commit>
 #   ... -f owner_said='ship it'     (only for the ship-it tier)
@@ -46,7 +51,35 @@ permissions:
   pull-requests: read
 
 jobs:
+  # The strictness check. It has NO secret and NO environment, because it loads the new rules,
+  # which are the pull request's own code. That code runs only in a child process with a bare
+  # environment and a time limit. This job's trusted code, from `testing`, compares the answers
+  # and writes the verdict. The shipping job reads the verdict from this job's output.
+  differential:
+    if: github.actor == (vars.OWNER_LOGIN || github.repository_owner) || github.actor == (vars.BOT_LOGIN || 'omniya-bot')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      result: ${{ steps.check.outputs.result }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: testing
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ inputs.sha }}
+        run: node scripts/ci/lock-differential.mjs check "$SHA"
+
   ship:
+    needs: differential
     if: github.actor == (vars.OWNER_LOGIN || github.repository_owner) || github.actor == (vars.BOT_LOGIN || 'omniya-bot')
     environment: pipeline
     runs-on: ubuntu-latest
@@ -63,6 +96,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: testing
+      # The shipper reads each changed workflow as YAML, which needs the YAML reader from the
+      # lockfile of `testing`. Scripts do not run during the install.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --ignore-scripts --no-audit --no-fund
       - env:
           GH_TOKEN: ${{ github.token }}
           MERGE_TOKEN: ${{ steps.app.outputs.token }}
@@ -70,4 +109,5 @@ jobs:
           PR: ${{ inputs.pr_number }}
           SHA: ${{ inputs.sha }}
           OWNER_SAID: ${{ inputs.owner_said }}
+          DIFFERENTIAL: ${{ needs.differential.outputs.result }}
         run: node scripts/ci/ship-pipeline-pr.mjs "$PR" "$SHA"

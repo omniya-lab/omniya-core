@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-import { decide, notGreen, sensitiveIn, ship } from '../../../scripts/ci/ship-pipeline-pr.mjs';
+import { decide, notGreen, saysShip, sensitiveIn, ship } from '../../../scripts/ci/ship-pipeline-pr.mjs';
 
 const SHA = 'a'.repeat(40);
 const allowedAuthors = ['ParkingSoman', 'omniya-bot'];
@@ -65,18 +65,61 @@ test('refuses when the file list cannot be trusted to be complete', () => {
   assert.match(ok({ changedFiles: 3000 }, { files: many }).reason, /not complete/);
 });
 
-// ---- the bypass tier: the shipper itself ----
+// ---- the lock tier: the files that decide who may merge what ----
 
-test('the shipper, its workflow and its tests need the owner\'s own click, whatever anyone says', () => {
-  for (const file of ['.github/workflows/pipeline-ship.yml', 'scripts/ci/ship-pipeline-pr.mjs', 'test/unit/pipeline/ship-pipeline-pr.test.js']) {
+const LOCK = ['.github/workflows/pipeline-ship.yml', 'scripts/ci/ship-pipeline-pr.mjs', 'test/unit/pipeline/ship-pipeline-pr.test.js', 'scripts/ci/protection.json', 'scripts/ci/lock-differential.mjs'];
+
+test('a change to the lock needs the owner\'s words AND a strictness check that passed', () => {
+  for (const file of LOCK) {
     const files = [doc, { filename: file, status: 'modified', patch: '+x' }];
-    const out = withFiles(files, { ownerSaid: 'ship it, I mean it' });
-    assert.equal(out.ship, false, file);
-    assert.match(out.reason, /shipper.*bypass tick in the browser/, file);
+    // No words: refused, and it says why.
+    const silent = withFiles(files, { differential: 'pass' });
+    assert.equal(silent.ship, false, file);
+    assert.match(silent.reason, /needs the owner's "ship it".*part of the lock/, file);
+    // Words and a pass: shipped, as the lock tier, with no click anywhere.
+    const out = withFiles(files, { ownerSaid: 'ship it', differential: 'pass' });
+    assert.equal(out.ship, true, file);
+    assert.equal(out.tier, 'lock', file);
   }
-  // Moved away from there is still a change to it.
+});
+
+test('anything but a pass from the strictness check stops a change to the lock', () => {
+  const files = [doc, { filename: 'scripts/ci/ship-pipeline-pr.mjs', status: 'modified', patch: '+x' }];
+  for (const differential of ['fail', 'error', 'not-run', undefined, '', 'PASS', 'passed']) {
+    const out = withFiles(files, { ownerSaid: 'ship it', differential });
+    assert.equal(out.ship, false, String(differential));
+    assert.match(out.reason, /strictness check/, String(differential));
+  }
+  // `same` means the check saw nothing to compare, which does not fit a change to the lock.
+  assert.match(withFiles(files, { ownerSaid: 'ship it', differential: 'same' }).reason, /no change to compare/);
+});
+
+test('the verdict of the strictness check is not needed, and not trusted, for a change outside the lock', () => {
+  assert.equal(withFiles([doc], { differential: 'fail' }).ship, true);
+  assert.equal(withFiles([doc], { differential: 'error' }).tier, 'automatic');
+});
+
+test('a file moved out of the lock is still a change to the lock', () => {
   const renamed = [{ filename: 'docs/old.yml', previous_filename: '.github/workflows/pipeline-ship.yml', status: 'renamed', patch: '' }];
-  assert.match(withFiles(renamed).reason, /bypass tick/);
+  assert.equal(withFiles(renamed, { differential: 'pass' }).ship, false);
+  assert.equal(withFiles(renamed, { ownerSaid: 'ship it', differential: 'pass' }).tier, 'lock');
+});
+
+test('a lock change merges only with the words and a pass, and a refusal posts no status and does not merge', () => {
+  const change = { filename: 'scripts/ci/ship-pipeline-pr.mjs', status: 'modified', patch: '+x' };
+  const stopped = [{ ownerSaid: 'ship it', differential: 'fail' }, { ownerSaid: '', differential: 'pass' }, { ownerSaid: 'ship it' }];
+  for (const extra of stopped) {
+    const f = fakeGh({ files: [change] });
+    const out = ship({ ...input, ...extra }, f.run, () => {});
+    assert.equal(out.shipped, false, JSON.stringify(extra));
+    assert.equal(f.calls.some((c) => c.args[0] === 'api' && c.args[1].includes('/statuses/')), false);
+    assert.equal(f.calls.some((c) => c.args[1] === 'merge'), false);
+  }
+  const f = fakeGh({ files: [change] });
+  const out = ship({ ...input, ownerSaid: 'ship it', differential: 'pass' }, f.run, () => {});
+  assert.equal(out.shipped, true);
+  assert.equal(out.tier, 'lock');
+  assert.ok(f.calls.some((c) => c.args[1] === 'merge'));
 });
 
 // ---- the allow list ----
@@ -88,10 +131,10 @@ test('ships only plainly automation files, and sends everything else to the owne
   for (const bad of ['src/main.js', 'package.json', 'package-lock.json', '.npmrc', '.nvmrc', 'test/unit/model.test.js', 'test/e2e/x.test.js', '.github/CODEOWNERS', '.github/actions/a/action.yml', '.github/workflows/sub/x.yml', '.github/workflows/PIPELINE-X.yml', 'scripts/build.mjs', 'contributors.yml', 'docs/../src/main.js']) {
     const out = withFiles([doc, { filename: bad, status: 'modified', patch: '+x' }], { ownerSaid: 'ship it' });
     assert.equal(out.ship, false, bad);
-    assert.match(out.reason, /bypass tick/, bad);
+    assert.match(out.reason, /approval in the merge box/, bad);
   }
   const moved = [{ filename: 'docs/a.md', previous_filename: 'src/a.js', status: 'renamed', patch: '' }];
-  assert.match(withFiles(moved).reason, /bypass tick/);
+  assert.match(withFiles(moved).reason, /approval in the merge box/);
 });
 
 test('will not ship a change that deletes a test or moves one out of test/', () => {
@@ -124,6 +167,78 @@ test('only words that say "ship it" count as the owner\'s word, not any three ch
   }
   for (const said of ['ship it', 'Ship it!', 'ok, SHIP IT now', 'shipit']) {
     assert.equal(withFiles(files, { ownerSaid: said }).ship, true, JSON.stringify(said));
+  }
+});
+
+test('"ship it" and "ship 98" say ship, and a refusal beside the word cancels it', () => {
+  for (const said of ['ship it', 'Ship it!', 'ship 98', 'i did the merge. ship 98', 'ok, ship the thing', 'shipit', 'SHIP IT now']) {
+    assert.equal(saysShip(said), true, said);
+  }
+  for (const said of ['', 'no way', 'not yet', 'wait', 'abc', 'shipping later', "don't ship it", 'do not ship 98', 'never ship it', 'hold on, ship it later? no', 'stop. ship it', 'cancel, do not ship', null, undefined]) {
+    assert.equal(saysShip(said), false, String(said));
+  }
+  // Every contraction of "not", with either apostrophe, and the words that take a yes back.
+  for (const said of ["shouldn't ship it", "ship it? can't say", 'we won’t ship it', "isn't ready, ship it", 'nope, ship it', 'nah ship it', 'ship it later', 'maybe ship it', 'ship it unless it fails', 'ship it without tests', 'dont ship it', 'cannot ship it']) {
+    assert.equal(saysShip(said), false, String(said));
+  }
+});
+
+test('a quoted YAML key or value reads the same to GitHub, so it is just as sensitive', () => {
+  // `"environment": pipeline` is the same line as `environment: pipeline`. A pattern that wants
+  // the colon straight after the word would miss it.
+  const cases = {
+    'an environment': ['"environment": pipeline', "'environment' : 'pipeline'"],
+    'a permission': ['"contents": "write"', "'issues': 'write'", '"permission-statuses": "write"'],
+    'a secret or a token': ['x: ${{ "secrets".X }}', 'x: ${{ secr​ets.X }}', "x: ${{ 'secrets'['X'] }}"]
+  };
+  for (const [what, lines] of Object.entries(cases)) {
+    for (const line of lines) {
+      const f = workflow('.github/workflows/pipeline-new.yml', [line]);
+      assert.ok(sensitiveIn(f).includes(what), `${JSON.stringify(line)} should be ${what}, got ${sensitiveIn(f)}`);
+    }
+  }
+  // Taking a quoted permissions block away widens the job, same as an unquoted one.
+  assert.ok(sensitiveIn({ filename: '.github/workflows/pipeline-new.yml', status: 'modified', patch: '-"permissions":\n-  contents: read' }).includes('a permission'));
+});
+
+test('a YAML alias or merge key hides what a line grants, so it needs the owner\'s word', () => {
+  for (const line of ['permissions: *full', '<<: *defaults', '  - *steps', 'env: &shared']) {
+    const f = workflow('.github/workflows/pipeline-new.yml', [line]);
+    assert.ok(sensitiveIn(f).includes('a YAML alias or merge key, which hides what a line grants'), line);
+  }
+  // Ordinary shell and globs are not aliases.
+  for (const line of ['run: npm test && npm run lint', 'paths: ["**/*.md"]', 'run: sleep 1 &']) {
+    assert.ok(!sensitiveIn(workflow('.github/workflows/pipeline-new.yml', [line])).some((w) => /alias/.test(w)), line);
+  }
+});
+
+test('a protected path is compared in one plain form, so a change of case or Unicode does not make it free', () => {
+  for (const name of ['scripts/ci/Ship-Pipeline-Pr.mjs', '.GITHUB/workflows/pipeline-ship.yml', 'scripts/ci/ship-pipeline-pr.mjs']) {
+    const out = withFiles([{ filename: name, status: 'modified', patch: '+x' }]);
+    assert.equal(out.ship, false, name);
+  }
+  // Composed and decomposed forms of the same letters are the same name.
+  const composed = withFiles([{ filename: 'scripts/ci/gh.mjs', status: 'modified', patch: '+x' }]);
+  const upper = withFiles([{ filename: 'SCRIPTS/CI/GH.MJS', status: 'modified', patch: '+x' }]);
+  assert.match(composed.reason, /ship it/);
+  assert.equal(upper.ship, false);
+});
+
+test('a path with a backslash, a control character or a leading slash is not a path this pipeline makes', () => {
+  for (const name of ['docs\\x.md', 'docs/x\u0000.md', 'docs/x\n.md', '/docs/x.md', 'docs/x\u007f.md']) {
+    const out = withFiles([{ filename: name, status: 'added', patch: '+x' }], { ownerSaid: 'ship it' });
+    assert.equal(out.ship, false, JSON.stringify(name));
+    assert.match(out.reason, /approval in the merge box/);
+  }
+});
+
+test('who may start the agent, and what it may do, is a change that needs the owner\'s word', () => {
+  // `allowed_bots` was changed on 2026-10-14 and this script called it automatic.
+  for (const line of ['allowed_bots: github-actions', "allowed_non_write_users: '*'", '--allowedTools "Bash"', '--dangerously-skip-permissions', 'additional_permissions: actions: read', '--permission-mode acceptEdits']) {
+    const f = workflow('.github/workflows/pipeline-agent.yml', [line]);
+    assert.ok(sensitiveIn(f).includes('who may start the agent or what it may do'), line);
+    assert.equal(withFiles([f]).ship, false, line);
+    assert.equal(withFiles([f], { ownerSaid: 'ship it' }).ship, true, line);
   }
 });
 
@@ -224,7 +339,7 @@ test('a test change that GitHub does not show cannot be seen to keep its asserti
 test('only the pipeline\'s own and the existing CI workflow names are allowed at all', () => {
   const unknown = withFiles([{ filename: '.github/workflows/release.yml', status: 'added', patch: '+name: x' }], { ownerSaid: 'ship it' });
   assert.equal(unknown.ship, false);
-  assert.match(unknown.reason, /bypass tick/);
+  assert.match(unknown.reason, /approval in the merge box/);
   for (const name of ['pipeline-new', 'pr-new', 'testing-app', 'screen-reader', 'diagnostics-windows']) {
     const f = { filename: `.github/workflows/${name}.yml`, status: 'modified', patch: '+# a comment' };
     assert.equal(withFiles([f], { ownerSaid: 'ship it' }).ship, true, name);
@@ -314,6 +429,9 @@ function fakeGh({ view = pr, conclusion = 'success', mergeFails = 0, pushes = ['
     if (args[0] === 'pr' && args[1] === 'view') return JSON.stringify(view);
     if (args[0] === 'api' && args.some((a) => a.endsWith('/activity'))) return JSON.stringify(pushes.map((a) => ({ a })));
     if (args[0] === 'api' && args[1].endsWith('/files')) return files.map((f) => JSON.stringify(f)).join('\n');
+    // Where the branch left testing, and a workflow file as it was and as it is: the same, so only the line scan speaks.
+    if (args[0] === 'api' && args.some((a) => a.includes('/compare/'))) return `${'b'.repeat(40)}\n`;
+    if (args[0] === 'api' && args.some((a) => a.includes('/contents/'))) return 'name: x\non:\n  workflow_dispatch:\n';
     if (args.some((a) => a.endsWith('/actions/runs'))) {
       return JSON.stringify([
         { id: 11, path: '.github/workflows/pr-checks.yml', created_at: 't', conclusion },
@@ -407,9 +525,28 @@ test('the workflow runs in the locked environment, from testing, for two actors,
   const yml = readFileSync('.github/workflows/pipeline-ship.yml', 'utf8');
   assert.match(yml, /environment: pipeline/);
   assert.match(yml, /github\.actor == \(vars\.OWNER_LOGIN \|\| github\.repository_owner\) \|\| github\.actor == \(vars\.BOT_LOGIN \|\| 'omniya-bot'\)/);
-  assert.deepEqual([...yml.matchAll(/^\s*ref:\s*(.+)$/gm)].map((m) => m[1].trim()), ['testing']);
+  // Both jobs check out `testing`, and nothing else.
+  assert.deepEqual([...yml.matchAll(/^\s*ref:\s*(.+)$/gm)].map((m) => m[1].trim()), ['testing', 'testing']);
   assert.doesNotMatch(yml, /run:[^\n]*\$\{\{/, 'no expression inside a run line');
   assert.match(yml, /OWNER_SAID: \$\{\{ inputs\.owner_said \}\}/, 'the owner\'s words reach the script through env only');
   assert.doesNotMatch(yml, /CLAUDE_CODE_OAUTH_TOKEN/, 'no agent');
   assert.doesNotMatch(yml, /--admin/);
+});
+
+test('the strictness check runs in a job with no secret and no environment, and the shipper reads its verdict from that job', async () => {
+  // The new rules are the pull request's own code. They run only in the job that has nothing to steal.
+  const { load } = await import('js-yaml');
+  const wf = load(readFileSync('.github/workflows/pipeline-ship.yml', 'utf8'));
+  const job = wf.jobs.differential;
+  assert.equal(job.environment, undefined, 'no environment, so no secret can reach it');
+  assert.deepEqual(job.permissions, { contents: 'read' });
+  assert.doesNotMatch(JSON.stringify(job), /secrets\.|app-token|MERGE_TOKEN|permission-/, 'no secret, no App token');
+  const checkout = job.steps.find((s) => typeof s.uses === 'string' && s.uses.startsWith('actions/checkout'));
+  assert.equal(checkout.with['persist-credentials'], false, 'the checkout keeps no credential for the new code to read');
+  assert.equal(checkout.with.ref, 'testing', 'the comparator is the trusted one from testing');
+  assert.match(job.steps.find((s) => s.id === 'check').run, /lock-differential\.mjs check "\$SHA"/);
+  // The shipping job needs it, and reads only its output.
+  assert.equal(wf.jobs.ship.needs, 'differential');
+  const env = wf.jobs.ship.steps.find((s) => (s.run ?? '').includes('ship-pipeline-pr.mjs')).env;
+  assert.equal(env.DIFFERENTIAL, '${{ needs.differential.outputs.result }}');
 });
