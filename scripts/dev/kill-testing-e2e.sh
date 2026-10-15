@@ -2,7 +2,7 @@
 # Kill e2e Electron/node runners for THIS worktree only.
 # Never touches other omniya-core worktrees or Cursor/VSCode Electron apps.
 set -euo pipefail
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 MARKER="$ROOT/node_modules/electron"
 
 echo "Scoped cleanup for: $ROOT"
