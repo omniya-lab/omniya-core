@@ -330,7 +330,7 @@ jobs:
           FIX_PR: ${{ steps.find.outputs.pr }}
         run: node scripts/ci/confirm.mjs "$ISSUE_NUMBER" "$COMMENT_ID" "$COMMENTER" "$ISSUE_AUTHOR" "$ASSOCIATION" 1 "$FIX_PR"
 
-  # placeholder-noaccess2 Same reason as the
+  # The maintainer has to finish adding a listed contributor. Same reason as the
   # job of the same name in `pipeline-fix.yml`, and it fails for the same reason.
   noaccess:
     needs: allowlist
