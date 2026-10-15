@@ -8,6 +8,8 @@
  *           the fix still lands. Needs the planted bug (see lab-admin.mjs).
  *   works-but          the fix is built; the author writes "it works but ..." The words go to
  *                      the AGENT (a new bot reply, no hand-off, nothing merged).
+ *   two-fixes          the fix is built; a SECOND open fix pull request claims the issue; the author's bare
+ *                      "it works" must do nothing (the pipeline will not guess which fix).
  *   stranger-confirm   the fix is built; a non-author writes a bare "it works". Nothing happens.
  *   answer-to-question the agent asks a question; a bare "it works" in answer to it must NOT
  *                      hand off (no comment, no run, no pull request). Then the fix still lands.
@@ -23,7 +25,7 @@
  * Env: CONTRIB_GH_TOKEN (the author), GH_TOKEN (the non-author), GITHUB_REPOSITORY
  * or LAB_REPO. Options: --signoff bare|at-claude, --scenario, --fast, --poll-s N (default 12),
  * --timeout-min N (default 45), --non-author-wait-s N (default 150, 45 with --fast),
- * --json FILE (write the result). --signoff at-claude writes the old "@claude it works". Exit 1 on any failure.
+ * --expect-agent (the old code: do not require the agent job to be skipped), --json FILE (write the result). --signoff at-claude writes the old "@claude it works". Exit 1 on any failure.
  */
 
 import { writeFileSync } from 'node:fs';
@@ -58,6 +60,7 @@ export const SCENARIOS = {
     merges: true,
     requireQuestion: true
   },
+  'two-fixes': { report: FIX_REPORT, script: [], merges: false, variant: 'two-fixes' },
   'works-but': { report: FIX_REPORT, script: [], merges: false, variant: 'works-but' },
   'stranger-confirm': { report: FIX_REPORT, script: [], merges: false, variant: 'stranger' },
   'answer-to-question': {
@@ -125,7 +128,7 @@ function fail(message) {
  */
 export async function run({
   scenario = 'fix', author, other, repo, base = 'testing',
-  timeoutMin = 45, pollS = 12, nonAuthorWaitS = 150, signoff = 'bare', log = console.log
+  timeoutMin = 45, pollS = 12, nonAuthorWaitS = 150, signoff = 'bare', expectAgent = false, log = console.log
 } = {}) {
   const sc = SCENARIOS[scenario];
   // What the contributor writes to say it works. `bare` is the new path (no agent);
@@ -272,6 +275,7 @@ export async function run({
       return result({ issue: n, pr: pr.number });
     }
     if (sc.variant === 'works-but') return await worksButChecks(pr);
+    if (sc.variant === 'two-fixes') return await twoFixesChecks(pr);
 
     await call(author, 'POST', `/repos/${repo}/issues/${n}/comments`, { body: SAY });
     const saidAt = Date.now();
@@ -289,13 +293,59 @@ export async function run({
         const mergedS = Math.round((Date.now() - saidAt) / 1000);
         step(`7 merged into ${base} (${p.merge_commit_sha}) and issue #${n} closed, ${mergedS} s after the sign-off`);
         await noteRuns();
-        return result({ issue: n, pr: pr.number, asked: answers, signoff: SAY, handoffS, mergedS });
+        const agentJob = await signoffAgentJob(saidAt);
+        if (!expectAgent && agentJob.agent !== 'skipped') throw fail(`the sign-off run did not skip the agent job: ${JSON.stringify(agentJob)}`);
+        step(`7 sign-off run ${agentJob.url}: agent job ${agentJob.agent}, handoff job ${agentJob.handoff}`);
+        return result({ issue: n, pr: pr.number, asked: answers, signoff: SAY, handoffS, mergedS, agentJob });
       }
       if (p.state === 'closed' && !p.merged) throw fail('the pull request was closed without merging');
       await noteRuns();
       await sleep(pollS * 1000);
     }
     throw fail('timed out waiting for the merge and the closed issue');
+  }
+
+  // The pipeline-followup run the sign-off started: was the agent job skipped, and did hand-off run?
+  async function signoffAgentJob(saidAt) {
+    const since = new Date(saidAt - 3000).toISOString();
+    for (let i = 0; i < 6; i++) {
+      const all = await noteRuns();
+      const mine = all.filter((w) => w.name === 'pipeline-followup' && w.event === 'issue_comment' && w.created_at >= since && w.status === 'completed');
+      for (const w of mine) {
+        const jobs = (await call(author, 'GET', `/repos/${repo}/actions/runs/${w.id}/jobs?per_page=100`)).jobs;
+        const by = (name) => jobs.find((j) => j.name === name)?.conclusion ?? 'absent';
+        if (by('handoff') === 'success') return { url: w.html_url, agent: by('agent'), handoff: by('handoff'), jobs: jobs.map((j) => `${j.name}:${j.conclusion}`) };
+      }
+      await sleep(5000);
+    }
+    throw fail('could not find the completed sign-off run with a successful handoff job');
+  }
+
+  // A second open fix claims the same issue. The pipeline must not guess: a bare "it works" does nothing.
+  async function twoFixesChecks(pr) {
+    const head = (await call(other, 'GET', `/repos/${repo}/git/ref/heads/${base}`)).object.sha;
+    const branch = `claude/fix-${n}-second`;
+    await call(other, 'POST', `/repos/${repo}/git/refs`, { ref: `refs/heads/${branch}`, sha: head });
+    await call(other, 'PUT', `/repos/${repo}/contents/lab-second-fix-${n}.txt`, { message: 'Lab: a second fix for the same issue', content: Buffer.from('second\n').toString('base64'), branch });
+    const second = await call(other, 'POST', `/repos/${repo}/pulls`, { title: `Lab: second fix for #${n}`, head: branch, base, body: `A second fix, only to count.\n\nFixes #${n}` });
+    step(`6 a second open fix claims the issue: #${second.number}`);
+    const before = (await botComments(n)).length;
+    const saidAt = Date.now();
+    await call(author, 'POST', `/repos/${repo}/issues/${n}/comments`, { body: SAY });
+    step(`6 the author said "${SAY}" with two open fixes`);
+    await waitQuietAfter(saidAt, nonAuthorWaitS);
+    const now = await call(author, 'GET', `/repos/${repo}/pulls/${pr.number}`);
+    const status = await call(author, 'GET', `/repos/${repo}/commits/${now.head.sha}/status`);
+    const after = await botComments(n);
+    const failure = now.merged || now.auto_merge ? 'a merge was turned on'
+      : status.statuses.some((s) => s.context === 'contributor-tested' && s.state === 'success') ? 'contributor-tested was set'
+      : after.slice(before).some((c) => c.body.includes(WORDS.sent)) ? 'the hand-off comment was posted' : '';
+    await call(other, 'PATCH', `/repos/${repo}/pulls/${second.number}`, { state: 'closed' }).catch(() => {});
+    await call(other, 'DELETE', `/repos/${repo}/git/refs/heads/${branch}`).catch(() => {});
+    if (failure) throw fail(`with two open fixes a bare "it works" had an effect: ${failure}`);
+    step('6 ok: two open fixes, a bare "it works" did nothing (no merge, no status, no comment)');
+    await cleanUp(pr);
+    return result({ issue: n, pr: pr.number });
   }
 
   async function cleanUp(pr) {
@@ -372,7 +422,8 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
     timeoutMin: Number(opt('--timeout-min', 45)),
     pollS: Number(opt('--poll-s', 12)),
     nonAuthorWaitS: Number(opt('--non-author-wait-s', fast ? 45 : 150)),
-    signoff: opt('--signoff', 'bare')
+    signoff: opt('--signoff', 'bare'),
+    expectAgent: args.includes('--expect-agent')
   };
   const outcomes = await Promise.all(names.map((scenario) =>
     run({ ...common, scenario }).then(
