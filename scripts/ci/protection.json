@@ -11,7 +11,9 @@
     "test/unit/pipeline/workflow-diff.test.js",
     "scripts/ci/lock-corpus.mjs",
     "scripts/ci/lock-differential.mjs",
-    "test/unit/pipeline/lock-differential.test.js"
+    "test/unit/pipeline/lock-differential.test.js",
+    "scripts/ci/product-lane.mjs",
+    "test/unit/pipeline/product-lane.test.js"
   ],
   "shipIt": [
     ".github/workflows/pr-checks.yml",
