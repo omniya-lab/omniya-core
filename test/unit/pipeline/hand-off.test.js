@@ -235,7 +235,7 @@ test('a protected fix: no status, no auto-merge, needs-owner, and the maintainer
   const lines = f.calls.map((c) => c.line);
   assert.ok(!lines.some((l) => l.includes('statuses/') || l.startsWith('pr merge')));
   assert.ok(lines.some((l) => l.includes('--add-label needs-owner')));
-  assert.ok(lines.some((l) => l.includes('--add-reviewer owner')));
+  assert.ok(lines.some((l) => l.includes('pulls/9/requested_reviewers') && l.includes('reviewers[]=owner')));
   assert.ok(lines.some((l) => l.includes('issues/5/comments') && l.includes('changes the automation itself')));
 });
 

@@ -80,7 +80,7 @@ test('posts one comment on the issue and takes the label off', () => {
   assert.equal(posts.length, 1);
   assert.match(posts[0][1], /issues\/73\/comments/);
   assert.match(posts[0].join(' '), /releases\/download\/pr-84\/Omniya-Core-Setup-x64\.exe/);
-  assert.ok(calls.some((c) => c[0] === 'pr' && c[1] === 'edit' && c.includes('--remove-label') && c.includes('needs-owner')));
+  assert.ok(calls.some((c) => c[0] === 'issue' && c[1] === 'edit' && c.includes('--remove-label') && c.includes('needs-owner')));
 });
 
 test('does nothing while the build is still running', () => {

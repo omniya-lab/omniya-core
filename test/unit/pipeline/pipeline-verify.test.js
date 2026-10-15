@@ -94,7 +94,7 @@ test('green says the build is ready on the issue; red says a technical thing is 
   assert.equal(call.inputs.reply_state.default, 'ready');
   assert.equal(call.inputs.message.default, '');
   assert.match(run, /reply\.mjs "\$ISSUE" maintainer/);
-  assert.match(run, /gh pr edit "\$PR" --add-label needs-owner/);
+  assert.match(run, /gh issue edit "\$PR" --add-label needs-owner/);
   assert.match(run, /gh pr comment "\$PR"/, 'the technical case goes on the pull request');
   assert.doesNotMatch(run, /gh issue comment/, 'the contributor reads one reply, and nothing technical');
 });
