@@ -118,7 +118,7 @@ jobs:
       contents: write
       pull-requests: write
       issues: read
-    runs-on: macos-latest
+    runs-on: ${{ vars.MAC_RUNNER || 'macos-latest' }}
     # macOS because the gates below include the Electron e2e suite, and
     # `scripts/stage-liblouis.mjs` supports darwin and win32 only.
     timeout-minutes: 60

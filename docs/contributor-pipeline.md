@@ -31,15 +31,15 @@ whether the bug is gone.
 - If it is still wrong, write a comment that starts with `@claude` and say what
   you found. You get one new comment, and the same links already in the first
   one now hold the new build.
-- If it works, write `@claude it works`. The maintainer then reads the fix and
-  ships it.
+- If it works, write: it works (only that; with more words, start with `@claude`).
 - Do not close the issue. Closing sends nothing. You will get a comment that
   tells you what to write instead.
 - If you have a question, start it with `@claude` too. You get one answer, and
   nothing changes.
 
 The word `@claude` is what starts the work. A comment without it is read by
-people only. Each run costs the maintainer part of a paid quota.
+people only. Each run costs the maintainer part of a paid quota. A plain "it works" is
+the exception: a script reads it, with no agent, only from you, after a build.
 
 Sometimes the agent asks you up to three short questions first. Answer in a
 comment that starts with `@claude`. "I do not know" is a good answer. A comment
@@ -68,7 +68,7 @@ flowchart TD
   G -- still red --> I[Label needs-owner, you look]
   H --> J{Contributor comments @claude}
   J -- problem --> F
-  J -- it works --> K{Touches pipeline files or reverses a note?}
+  J -- "it works", no agent --> K{Touches pipeline files or reverses a note?}
   K -- no --> L[Status contributor-tested, auto-merge into testing]
   K -- yes --> N[Label needs-owner, you review and merge]
   L --> M[Issue closes from the Fixes line]

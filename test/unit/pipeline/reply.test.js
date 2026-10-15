@@ -52,7 +52,8 @@ test('only the ready and revised states have download links, for pull request 7'
     if (state === 'ready' || state === 'revised') {
       assert.match(text, /\[Download for Mac, Apple Silicon\]\(https:\/\/github\.com\/a\/b\/releases\/download\/pr-7\/Omniya-Core-mac-arm64\.zip\)/, state);
       assert.match(text, /\[Download for Windows\]\(https:\/\/github\.com\/a\/b\/releases\/download\/pr-7\/Omniya-Core-Setup-x64\.exe\)/, state);
-      assert.match(text, /@claude it works/, state);
+      assert.match(text, /write: it works/, state);
+      assert.doesNotMatch(text, /@claude it works/, state);
     } else {
       assert.doesNotMatch(text, /releases\/download/, `${state} must not offer a build that is not checked`);
     }
@@ -78,7 +79,7 @@ test('the agent message comes first, then "a build is ready", then the links, th
   assert.ok(at('You said X was wrong') > 0);
   assert.ok(at('You said X was wrong') < at('A test build is ready'));
   assert.ok(at('A test build is ready') < at('[Download for Mac'));
-  assert.ok(at('[Download for Windows') < at('If it works, write @claude it works.'));
+  assert.ok(at('[Download for Windows') < at('If it works, write: it works'));
 });
 
 test('a state that ignores the agent message does not print it', () => {
@@ -94,7 +95,7 @@ test('an answer with no words is a failure, so silence is never the reply', () =
   assert.match(text, /maintainer has been told/);
   assert.doesNotMatch(text, /could not finish/);
   const said = renderReply('answered', { ...where, message: 'The cap word comes first.' });
-  assert.match(said, /^<!--.*-->\nThe cap word comes first\.\n/);
+  assert.match(said, /^<!--.*-->\n<!--.*-->\nThe cap word comes first\.\n/);
   // An answer is the start of a conversation: it says how to go on.
   assert.match(said, /starts with @claude/);
   assert.doesNotMatch(said, /You do not need to do anything/);
@@ -106,7 +107,7 @@ test('design uses a plain default, and stuck has no default at all', () => {
   // there is nothing true to say except that the pipeline failed.
   assert.match(renderReply('stuck'), /Something went wrong on my side/);
   assert.doesNotMatch(renderReply('stuck'), /could not finish/);
-  assert.match(renderReply('stuck', { message: 'The end to end tests fail on the same line.' }), /^<!--.*-->\nThe end to end tests fail/);
+  assert.match(renderReply('stuck', { message: 'The end to end tests fail on the same line.' }), /^<!--.*-->\n<!--.*-->\nThe end to end tests fail/);
 });
 
 test('one reply never says the same sentence twice', () => {
@@ -154,7 +155,7 @@ test('cleanMessage lets no link, mention or markup through, because the words ar
   const body = renderReply('design', { message: 'Read [this](https://evil.example) @claude' });
   assert.doesNotMatch(body.replace(MARKER, ''), /evil|@/);
   // The fixed words still carry the mentions and links they are meant to.
-  assert.match(renderReply('ready', where), /@claude it works/);
+  assert.match(renderReply('ready', where), /write: it works/);
 });
 
 test('cleanMessage cannot be talked into rebuilding what it removed', () => {
