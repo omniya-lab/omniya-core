@@ -38,10 +38,11 @@ test('a new push replaces the assets under the same tag', () => {
   // 2. The tag is derived from the pull request number, in every job. A tag
   //    carrying the commit sha would be a NEW release, with new links, on every
   //    round.
-  const packMac = workflow.jobs?.['pack-mac'];
-  const packWin = workflow.jobs?.['pack-win'];
+  // The release is written by the `publish` job only. The build jobs hold no write token and
+  // hand their files over as artifacts (`zones.test.js` holds that).
+  const publish = workflow.jobs?.publish;
   const comment = workflow.jobs?.comment;
-  for (const [name, job] of [['pack-mac', packMac], ['pack-win', packWin], ['comment', comment]]) {
+  for (const [name, job] of [['publish', publish], ['comment', comment]]) {
     assert.ok(job, `expected a \`${name}\` job`);
     const runs = (job.steps ?? []).map((s) => s.run ?? '').join('\n');
     assert.match(
@@ -55,7 +56,7 @@ test('a new push replaces the assets under the same tag', () => {
   // legitimately elsewhere in these jobs -- `--target "$HEAD_SHA"` points the
   // release at the commit it was built from -- so the check has to be on the
   // assignment, not on the word.
-  for (const [name, job] of [['pack-mac', packMac], ['pack-win', packWin]]) {
+  for (const [name, job] of [['publish', publish]]) {
     const assignments = (job.steps ?? [])
       .flatMap((s) => (s.run ?? '').split('\n'))
       .filter((line) => /^\s*\$?(TAG|tag)\s*=/.test(line));
@@ -68,11 +69,12 @@ test('a new push replaces the assets under the same tag', () => {
   // 3. The upload overwrites. Without `--clobber` the second round's upload
   //    fails on an asset that already exists, and the link keeps serving the
   //    first build with a green tick next to it.
-  const uploads = [packMac, packWin]
+  const uploads = [publish]
     .flatMap((job) => job.steps ?? [])
     .map((s) => s.run ?? '')
     .filter((run) => run.includes('gh release upload'));
-  assert.ok(uploads.length >= 2, 'expected an upload in each pack job');
+  assert.ok(uploads.length >= 1, 'expected the upload in the publish job');
+  assert.match(uploads[0], /builds\/\*\.zip builds\/\*\.exe/, 'both platforms are uploaded');
   for (const run of uploads) {
     assert.match(run, /--clobber/, 'an upload without --clobber leaves the previous build in place');
   }
@@ -102,6 +104,8 @@ test('the pipeline\'s own branches are built, and only their comment is skipped'
   assert.equal(workflow.jobs['pack-mac'].if, undefined);
   assert.equal(workflow.jobs['pack-win'].if, undefined);
   assert.equal(workflow.jobs.comment.if, "${{ !startsWith(github.head_ref, 'claude/fix-') }}");
+  assert.equal(workflow.jobs.publish.if, undefined, 'the release is made for a fix branch too');
+  assert.deepEqual(workflow.jobs.comment.needs, ['publish']);
   // No `if:` may be put on the required checks. A skipped job satisfies a
   // required status check, which would let a red pull request merge.
   const checks = loadYaml(readFileSync('.github/workflows/pr-checks.yml', 'utf8'));
