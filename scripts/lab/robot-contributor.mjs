@@ -357,8 +357,18 @@ export async function run({
   // come, it must not be the hand-off, and nothing may be set to merge.
   async function worksButChecks(pr) {
     const before = (await botComments(n)).length;
-    await call(author, 'POST', `/repos/${repo}/issues/${n}/comments`, { body: 'it works but the three dots are still read out when the line is eighty one letters long' });
-    step('6 the author said "it works but ..." (no @claude)');
+    const BUT = 'it works but the three dots are still read out when the line is eighty one letters long';
+    // Without @claude this is not a bare confirmation and never started an agent: nothing happens.
+    const quietFrom = Date.now();
+    await call(author, 'POST', `/repos/${repo}/issues/${n}/comments`, { body: BUT });
+    step('6 the author said "it works but ..." with no @claude');
+    await waitQuietAfter(quietFrom, 90);
+    if ((await botComments(n)).length !== before) throw fail('"it works but ..." with no @claude got a reply');
+    const quiet = await call(author, 'GET', `/repos/${repo}/pulls/${pr.number}`);
+    if (quiet.merged || quiet.auto_merge) throw fail('"it works but ..." with no @claude turned on a merge');
+    step('6 ok: with no @claude, nothing happened');
+    await call(author, 'POST', `/repos/${repo}/issues/${n}/comments`, { body: `@claude ${BUT}` });
+    step('6 the author said "@claude it works but ..."');
     const wait = Date.now();
     const reply = await waitFor('a reply to "it works but"', (cs) => (cs.length > before ? cs[cs.length - 1] : null));
     // Must not be the hand-off, and the commit must not be set to merge.
