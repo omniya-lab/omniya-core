@@ -229,8 +229,8 @@ maps the first to the run of parts it covers, and the second to "after the part 
 | What | Command | What it does |
 |---|---|---|
 | Thousands of edits, no browser | `node --test test/unit/equation-regenerate-fuzz.test.js` | Every part of 26 equations, three operations, 60 fragments, and chains of edits. Set `OMNIYA_FUZZ_SEED` and `OMNIYA_FUZZ_CHAINS` for a longer hunt. |
-| Live edits in the real app | `node scripts/fuzz-explorer-edits.mjs [seed] [rounds]` | Reads equations by parts, presses r, a and o, and compares each result with a fresh parse. Also reports any key that did nothing. |
-| A blind judge | `scripts/judge-drive.mjs` | A small driver. Give it to an agent that has read nothing else, and ask it to break the editing. |
+| Live edits in the real app | `node scripts/dev/fuzz-explorer-edits.mjs [seed] [rounds]` | Reads equations by parts, presses r, a and o, and compares each result with a fresh parse. Also reports any key that did nothing. |
+| A blind judge | `scripts/dev/judge-drive.mjs` | A small driver. Give it to an agent that has read nothing else, and ask it to break the editing. |
 
 A new symbol or Nemeth construct needs no new rule here. Add it to the pools in the fuzz
 test, and the check covers it.
