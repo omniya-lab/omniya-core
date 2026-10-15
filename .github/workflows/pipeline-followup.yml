@@ -100,7 +100,7 @@ jobs:
     # GitHub in the `issue` step, and a pull request number is refused there.
     if: >-
       (github.event_name == 'workflow_dispatch' &&
-        (github.actor == github.repository_owner || github.actor == 'omniya-bot') &&
+        (github.actor == (vars.OWNER_LOGIN || github.repository_owner) || github.actor == (vars.BOT_LOGIN || 'omniya-bot')) &&
         contains(inputs.comment_body, '@claude') &&
         !contains(inputs.comment_body, '<!-- omniya-pipeline-')) ||
       (github.event_name == 'issue_comment' &&

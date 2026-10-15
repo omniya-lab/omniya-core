@@ -406,7 +406,7 @@ test('refuses a bad sha or a missing token before touching GitHub', () => {
 test('the workflow runs in the locked environment, from testing, for two actors, with input only through env', () => {
   const yml = readFileSync('.github/workflows/pipeline-ship.yml', 'utf8');
   assert.match(yml, /environment: pipeline/);
-  assert.match(yml, /github\.actor == github\.repository_owner \|\| github\.actor == 'omniya-bot'/);
+  assert.match(yml, /github\.actor == \(vars\.OWNER_LOGIN \|\| github\.repository_owner\) \|\| github\.actor == \(vars\.BOT_LOGIN \|\| 'omniya-bot'\)/);
   assert.deepEqual([...yml.matchAll(/^\s*ref:\s*(.+)$/gm)].map((m) => m[1].trim()), ['testing']);
   assert.doesNotMatch(yml, /run:[^\n]*\$\{\{/, 'no expression inside a run line');
   assert.match(yml, /OWNER_SAID: \$\{\{ inputs\.owner_said \}\}/, 'the owner\'s words reach the script through env only');
