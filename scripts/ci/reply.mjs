@@ -47,6 +47,15 @@ export const MARKER = `${PIPELINE_PREFIX}reply -->`;
 export const QUESTION_MARKER = `${PIPELINE_PREFIX}question -->`;
 export const AUTHOR = 'github-actions[bot]';
 
+/**
+ * The second line of every reply: which state it is. `confirm.mjs` reads it to
+ * know that the newest thing the pipeline said was a build for the contributor
+ * to try. Only the bot writes it (a person cannot post as `github-actions[bot]`),
+ * and `cleanMessage` drops any line of agent text that carries the prefix.
+ */
+export const STATE_PREFIX = `${PIPELINE_PREFIX}state `;
+export const stateLine = (state) => `${STATE_PREFIX}${state} -->`;
+
 /** The agent's words are cut to this many characters. A reply is read aloud. */
 export const MAX_MESSAGE = 2000;
 
@@ -58,7 +67,7 @@ const STUCK_TAIL = [
 const TRY_IT = [
   'Install it and try the thing that was wrong. Then write a comment here.',
   'If it is still wrong, start your comment with @claude and say what you found.',
-  'If it works, write @claude it works.'
+  'If it works, write: it works'
 ];
 
 /**
@@ -95,7 +104,7 @@ const STATES_DEF = {
     intro: ['A new test build is ready. The links are the same as before, so download again from them.'],
     lines: [
       'Try it, then write here. If it is still wrong, start your comment with @claude and say what you found.',
-      'If it works, write @claude it works.'
+      'If it works, write: it works'
     ]
   },
   // An answer, or a question the agent could not settle on its own (it could not
@@ -307,7 +316,8 @@ export function resolveState(state, message) {
  * @returns {string}
  */
 export function renderReply(state, { repo, pr, message } = {}) {
-  const def = STATES_DEF[resolveState(state, message)];
+  const posted = resolveState(state, message);
+  const def = STATES_DEF[posted];
   const words = cleanMessage(message);
 
   const parts = [];
@@ -326,7 +336,7 @@ export function renderReply(state, { repo, pr, message } = {}) {
     ].join('\n'));
   }
   if (def.lines.length > 0) parts.push(def.lines.join('\n'));
-  return `${def.marker ?? MARKER}\n${parts.join('\n\n')}\n`;
+  return `${def.marker ?? MARKER}\n${stateLine(posted)}\n${parts.join('\n\n')}\n`;
 }
 
 /**

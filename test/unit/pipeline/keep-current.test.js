@@ -134,7 +134,7 @@ test('the job that starts the update holds no secret, and the hand-off job still
   const followup = load(readFileSync('.github/workflows/pipeline-followup.yml', 'utf8'));
   const start = followup.jobs['bring-up-to-date'];
   assert.deepEqual(start.permissions, { actions: 'write' });
-  assert.deepEqual(start.needs, ['agent', 'handoff']);
+  assert.deepEqual(start.needs, ['allowlist', 'handoff']);
   assert.match(start.if, /needs\.handoff\.outputs\.conflict == 'true'/);
   assert.doesNotMatch(JSON.stringify(start), /secrets\./, 'it can start a workflow, so it must hold no secret');
   assert.equal(start.environment, undefined);
