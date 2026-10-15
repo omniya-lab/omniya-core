@@ -79,12 +79,8 @@ jobs:
         run: node scripts/ci/lock-differential.mjs check "$SHA"
 
   ship:
-<<<<<<< HEAD
-    if: github.actor == (vars.OWNER_LOGIN || github.repository_owner) || github.actor == (vars.BOT_LOGIN || 'omniya-bot')
-=======
     needs: differential
-    if: github.actor == github.repository_owner || github.actor == 'omniya-bot'
->>>>>>> real-testing
+    if: github.actor == (vars.OWNER_LOGIN || github.repository_owner) || github.actor == (vars.BOT_LOGIN || 'omniya-bot')
     environment: pipeline
     runs-on: ubuntu-latest
     timeout-minutes: 10
