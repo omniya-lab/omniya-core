@@ -6,6 +6,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { checkForNewerMacBuild, RELEASE_PAGE_URL } from './main/mac-update-check.js';
 import { buildExport } from './main/export-service.js';
 import { convertLatexToMathML } from './main/mathml.js';
+import { rendererSandboxEnabled } from './main/renderer-sandbox.js';
 import { exportLatex, importLatex } from './main/math-service.js';
 import { createSettingsStorage } from './main/settings-storage.js';
 import { createStorage } from './main/storage.js';
@@ -37,7 +38,9 @@ const runHeadless = process.env.OMNIYA_HEADLESS === '0'
 if (process.env.OMNIYA_TEST_USER_DATA_DIR) {
   app.setPath('userData', process.env.OMNIYA_TEST_USER_DATA_DIR);
 }
-app.enableSandbox();
+// Always on, except in an isolated test run inside an outer sandbox. See renderer-sandbox.js.
+const useRendererSandbox = rendererSandboxEnabled(process.env);
+if (useRendererSandbox) app.enableSandbox();
 
 function assertTrustedSender(event) {
   if (event.senderFrame?.url !== rendererUrl) {
@@ -130,7 +133,7 @@ function createWindow() {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: true,
+      sandbox: useRendererSandbox,
       preload: path.join(sourceDirectory, 'preload.cjs'),
       // The build identity, for the renderer to display. Passed as an argv flag
       // rather than over IPC or in the URL: a sandboxed preload can read
