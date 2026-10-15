@@ -1,5 +1,5 @@
 {
-  "name": "omniya-core",
+  "description": "x", "name": "omniya-core",
   "version": "0.1.0",
   "description": "Experimental local-first prototype exploring screen-reader-first mathematical workspaces.",
   "main": "src/main.js",
