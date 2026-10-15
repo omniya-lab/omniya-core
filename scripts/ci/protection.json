@@ -43,7 +43,7 @@
     ".github/workflows/pipeline-rescued.yml": 8,
     ".github/workflows/pipeline-ship.yml": 8,
     ".github/workflows/pipeline-signoff.yml": 2,
-    ".github/workflows/pipeline-verify.yml": 17,
+    ".github/workflows/pipeline-verify.yml": 16,
     ".github/workflows/pr-build.yml": 14,
     ".github/workflows/testing-app.yml": 12,
     "scripts/ci/add-contributor.mjs": 2,
