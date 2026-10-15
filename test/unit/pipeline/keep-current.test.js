@@ -155,3 +155,75 @@ test('the agent accepts the Actions bot for a manual run and for nothing else', 
   assert.match(allowed, /\|\| ''/, 'every other event allows no bot');
   assert.doesNotMatch(allowed.replace(/'github-actions'/, ''), /github-actions|dependabot|\[bot\]/, 'only that one bot is named');
 });
+
+// --- A pipeline fault gets one retry (scripts/ci/heal.mjs) ---------------------------------
+
+const label = (...names) => names.map((name) => ({ name }));
+
+test('a pull request stuck by a pipeline fault is picked, and one stuck for a person is not', () => {
+  const { pick, skipped, heal } = plan([
+    pr({ number: 1, labels: label('needs-owner', 'pipeline-fault') }),
+    pr({ number: 2, labels: label('needs-owner') }),
+    pr({ number: 3, labels: label('needs-owner', 'pipeline-fault-retried') }),
+    pr({ number: 4, labels: label('needs-owner', 'pipeline-fault', 'pipeline-fault-retried') }),
+    pr({ number: 5, labels: label('needs-maintainer') })
+  ]);
+  assert.deepEqual(pick.map((p) => p.number), [1]);
+  assert.deepEqual([...heal], [1]);
+  assert.deepEqual(skipped.map((s) => s.pr), [2, 3, 4, 5], 'a retried fault is a person\'s now');
+});
+
+test('a needs-owner pull request with no fault label is a fault when the run it names says so', () => {
+  const asked = [];
+  const { pick, heal } = plan(
+    [pr({ number: 1, labels: label('needs-owner') }), pr({ number: 2, labels: label('needs-owner') }), pr({ number: 3, labels: label('needs-maintainer') })],
+    '',
+    (p) => { asked.push(p.number); return p.number === 1; }
+  );
+  assert.deepEqual(pick.map((p) => p.number), [1]);
+  assert.deepEqual([...heal], [1]);
+  assert.deepEqual(asked, [1, 2], 'needs-maintainer was never marked by a run, so it is never asked');
+});
+
+test('the run that is not a push takes the retry once; a push only looks', () => {
+  const prs = [pr({ number: 1, labels: label('needs-owner', 'pipeline-fault') })];
+  const look = fakeGh(prs);
+  const looked = keepCurrent({ repo: 'a/b', mergeToken: 'APP', claim: false }, look.gh);
+  assert.equal(look.calls.filter((c) => c.args[0] === 'issue').length, 0, 'a push does not spend the retry');
+  assert.deepEqual(looked.healed.map((h) => h.pr), ['1']);
+
+  const take = fakeGh(prs);
+  const taken = keepCurrent({ repo: 'a/b', mergeToken: 'APP', claim: true }, take.gh);
+  const edits = take.calls.filter((c) => c.args[0] === 'issue');
+  assert.ok(edits.some((e) => e.args.includes('--add-label') && e.args.includes('pipeline-fault-retried')));
+  assert.ok(edits.some((e) => e.args.includes('--remove-label') && e.args.includes('pipeline-fault')));
+  assert.ok(edits.every((e) => e.token === 'APP'));
+  assert.deepEqual(taken.healed, [{ issue: '70', pr: '1', branch: 'claude/fix-70-x', heal: 'true' }]);
+});
+
+test('an old pull request that never had the fault label is still claimed (seen live: the removal failed and the run died)', () => {
+  const prs = [pr({ number: 1, labels: label('needs-owner') })];
+  const f = fakeGh(prs);
+  const gh = (args, opts) => {
+    if (args.includes('--remove-label')) throw new Error("'pipeline-fault' not found");
+    return f.gh(args, opts);
+  };
+  const out = keepCurrent({ repo: 'a/b', mergeToken: 'APP', claim: true }, (a, o) => (a[0] === 'api' && a[1].includes('comments') ? '{"body":"still red after 3 repair attempts. Run: https://github.com/a/b/actions/runs/5"}' : a[0] === 'api' && a[1].includes('/jobs') ? '{"name":"repair (1, 2, b) / repair-1 / agent","conclusion":"failure"}' : gh(a, o)));
+  assert.deepEqual(out.healed.map((h) => h.pr), ['1']);
+  assert.ok(f.calls.some((c) => c.args.includes('pipeline-fault-retried')));
+});
+
+test('a faulty pull request that also conflicts is handed on once, marked as a retry', () => {
+  const prs = [pr({ number: 1, labels: label('needs-owner', 'pipeline-fault') })];
+  const out = keepCurrent({ repo: 'a/b', mergeToken: 'APP', claim: true }, fakeGh(prs, { 1: 'merge conflict' }).gh);
+  assert.deepEqual(out.conflicts, [{ issue: '70', pr: '1', branch: 'claude/fix-70-x', heal: 'true' }]);
+  assert.deepEqual(out.healed, []);
+});
+
+test('the push run does not claim, the others do, and the repair is told it is a retry', async () => {
+  const { load } = await import('js-yaml');
+  const wf = load(readFileSync('.github/workflows/pipeline-keep-current.yml', 'utf8'));
+  const keep = wf.jobs.update.steps.find((s) => s.id === 'keep');
+  assert.equal(keep.env.CLAIM, "${{ github.event_name != 'push' }}");
+  assert.equal(wf.jobs.repair.with.heal, '${{ matrix.item.heal }}');
+});
