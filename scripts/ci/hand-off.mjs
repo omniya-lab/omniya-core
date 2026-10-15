@@ -204,7 +204,7 @@ export function handOff({ issue, pr, repo, reviewer, mergeToken }, gh = realGh) 
     'api', `repos/${repo}/statuses/${sha}`,
     '-f', 'state=success', '-f', 'context=contributor-tested', '-f', 'description=The contributor tested this build'
   ], { token: mergeToken });
-  gh(['pr', 'merge', prNumber, '--repo', repo, '--auto', '--squash', '--match-head-commit', sha], { token: mergeToken });
+  gh(['pr', 'merge', prNumber, '--repo', repo, '--auto', '--squash', '--match-head-commit', sha, '--body', `Fixes #${issueNumber}`], { token: mergeToken });
   gh([
     'pr', 'comment', prNumber, '--repo', repo, '--body',
     `The contributor installed the build and says it works.\n\nCommit tested: ${sha}\n\n${REQUIRED_CHECKS.join(', ')} are green on that commit. Auto-merge is on for that commit only. If the branch changes, it will not merge on this approval. Merging closes issue #${issueNumber}.`
