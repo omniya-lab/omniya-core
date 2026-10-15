@@ -126,6 +126,6 @@ test('the gate runs through the public parseNemeth, not through a stage of it', 
   // working while the LaTeX it emits is unusable -- which is the failure the
   // ERROR bucket exists for on the corpus side.
   const script = readFileSync(path.join(projectRoot, 'scripts', 'grading', 'nemeth-utility.mjs'), 'utf8');
-  assert.match(script, /import \{ NemethUnsupportedError, parseNemeth \} from '\.\.\/src\/domain\/nemeth\/index\.js'/u);
-  assert.doesNotMatch(script, /from '\.\.\/src\/domain\/nemeth\/(lexer|levels|parser|latex)\.js'/u);
+  assert.match(script, /import \{ NemethUnsupportedError, parseNemeth \} from '\.\.\/\.\.\/src\/domain\/nemeth\/index\.js'/u);
+  assert.doesNotMatch(script, /from '\.\.\/\.\.\/src\/domain\/nemeth\/(lexer|levels|parser|latex)\.js'/u);
 });
