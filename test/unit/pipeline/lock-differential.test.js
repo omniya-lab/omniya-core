@@ -95,7 +95,7 @@ test('REAL: words that always count as ship are found', () => {
 
 test('REAL: a protected file dropped from the manifest is found', () => {
   const dir = copyOfRules();
-  const path = join(dir, 'scripts/ci/protection.json');
+  const path = join(dir, 'scripts/ci/zones.json');
   const m = JSON.parse(readFileSync(path, 'utf8'));
   m.lock = m.lock.filter((f) => f !== 'scripts/ci/ship-pipeline-pr.mjs');
   writeFileSync(path, JSON.stringify(m));
@@ -131,7 +131,7 @@ test('REAL: a rule that stops asking for the strictness verdict is found', () =>
 test('the new code runs with a bare environment: it sees no token and no GITHUB variable', () => {
   const dir = copyOfRules();
   // A rule file that tries to read the environment and report it through the answers.
-  edit(dir, 'scripts/ci/ship-pipeline-pr.mjs', 'export const LOCK_FILES = MANIFEST.lock;', 'export const LOCK_FILES = [...MANIFEST.lock, ...Object.keys(process.env).filter((k) => /TOKEN|GITHUB|SECRET|KEY/.test(k)).map((k) => `LEAK:${k}`)];');
+  edit(dir, 'scripts/ci/ship-pipeline-pr.mjs', "export const LOCK_FILES = filesOf('lock');", "export const LOCK_FILES = [...filesOf('lock'), ...Object.keys(process.env).filter((k) => /TOKEN|GITHUB|SECRET|KEY/.test(k)).map((k) => `LEAK:${k}`)];");
   process.env.SOME_SECRET_TOKEN = 'x';
   process.env.GITHUB_TOKEN = 'y';
   try {

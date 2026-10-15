@@ -120,7 +120,7 @@ jobs:
       issues: read
     runs-on: ${{ vars.MAC_RUNNER || 'macos-latest' }}
     # macOS because the gates below include the Electron e2e suite, and
-    # `scripts/stage-liblouis.mjs` supports darwin and win32 only.
+    # `scripts/build/stage-liblouis.mjs` supports darwin and win32 only.
     timeout-minutes: 60
     outputs:
       result: ${{ steps.result.outputs.result }}

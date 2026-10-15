@@ -1,6 +1,6 @@
 // Capture what a stranger would see of the app, for blind judging.
 //
-//   node scripts/judge-capture.mjs <output directory>
+//   node scripts/dev/judge-capture.mjs <output directory>
 //
 // It launches the real app on a throwaway data folder holding a few realistic
 // notes, and saves, for each state, a screenshot and the page's accessibility
@@ -13,10 +13,10 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { _electron as electron } from 'playwright';
 
-import { mathNode } from '../src/domain/document.js';
-import { convertLatexToMathML } from '../src/main/mathml.js';
+import { mathNode } from '../../src/domain/document.js';
+import { convertLatexToMathML } from '../../src/main/mathml.js';
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const outDir = path.resolve(process.argv[2] ?? 'judge-output');
 const MAC = process.platform === 'darwin';
 const INSERT = MAC ? 'Control+Equal' : 'Alt+Equal';

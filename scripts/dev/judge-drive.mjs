@@ -16,7 +16,7 @@ import path from 'node:path';
 
 import {
   DOC_END, chooseMethod, enterExplorer, focusDocument, getMathNodes, insertEquation, launchApp, press, settle
-} from '../test/e2e/launch-electron.js';
+} from '../../test/e2e/launch-electron.js';
 
 export async function open() {
   const dataDirectory = await mkdtemp(path.join(os.tmpdir(), 'judge-'));
