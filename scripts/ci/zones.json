@@ -39,6 +39,7 @@
     "test/unit/pipeline/product-lane.test.js",
     "scripts/ci/zones.json",
     "scripts/ci/zones.mjs",
-    "test/unit/pipeline/zones.test.js"
+    "test/unit/pipeline/zones.test.js",
+    "scripts/ci/job-power.mjs"
   ]
 }
