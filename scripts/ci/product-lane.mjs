@@ -37,14 +37,9 @@
  */
 
 import { gh as realGh } from './gh.mjs';
+import { plain, zoneOf } from './zones.mjs';
 
 export const PRODUCT_PREFIX = 'product/';
-
-/** The only places a product pull request may touch. Compared exactly, case and all. */
-export const ZONE_PREFIXES = ['src/', 'test/', 'docs/'];
-
-/** Inside a zone prefix, but never shipped by a word: the grading data and the pipeline's own tests. Compared in lower case. */
-export const ZONE_EXCLUDED = ['test/corpus', 'test/unit/pipeline'];
 
 const MAX_PATH = 240;
 const SAFE_CHARS = /^[A-Za-z0-9._\-/]+$/;
@@ -60,12 +55,13 @@ export function outsideZone(path) {
   if (!SAFE_CHARS.test(p)) return 'has a character other than letters, digits and . _ - /';
   const parts = p.split('/');
   if (parts.some((part) => part === '' || part === '.' || part === '..')) return 'has an empty, dot or dot-dot part';
-  if (parts.some((part) => part.startsWith('.') || part.endsWith('.'))) return 'is a dotfile or ends in a dot';
-  if (!ZONE_PREFIXES.some((prefix) => p.startsWith(prefix) && p.length > prefix.length)) return 'is not under src/, test/ or docs/';
-  const lower = p.toLowerCase();
-  const excluded = ZONE_EXCLUDED.find((dir) => lower === dir || lower.startsWith(`${dir}/`));
-  if (excluded) return `is under ${excluded}/, which a word does not ship`;
-  return null;
+  // A dot part is refused unless the map names that very file (`.gitignore`).
+  const { zone, pattern } = zoneOf(p);
+  if (parts.some((part) => part.startsWith('.') || part.endsWith('.')) && plain(pattern ?? '') !== plain(p)) return 'is a dotfile or ends in a dot';
+  if (zone === 'automatic') return null;
+  if (zone === 'goalposts') return 'is the grading data or its gate, which a word does not ship';
+  if (zone === 'owner') return 'is in no zone the map knows, so it is the owner\'s';
+  return 'runs with power or decides who may merge, so it needs a ship-it of its own kind';
 }
 
 /** Does the text name this pull request number, as a whole number? "106" is in "PR 106" and "#106", not in "1060". */
@@ -111,7 +107,7 @@ export function decideProduct({ files, modes, missing, number, ownerSaid, says }
   if (!says || !namesPull(ownerSaid, number)) {
     return { ship: false, reason: `it needs the owner's "ship it" naming pull request ${number}` };
   }
-  return { ship: true, tier: 'product', why: [`${files.length} file(s), all inside src/, test/ and docs/`] };
+  return { ship: true, tier: 'product', why: [`${files.length} file(s), all in the automatic zone`] };
 }
 
 /**
