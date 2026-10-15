@@ -112,7 +112,8 @@ async function dispatch({ number, sha, said = '', token = BOT }) {
 const pullState = (number) => {
   const v = JSON.parse(gh(BOT, 'pr', 'view', String(number), '--repo', repo, '--json', 'state,labels,mergedBy,headRefOid'));
   const statuses = JSON.parse(gh(BOT, 'api', `repos/${repo}/commits/${v.headRefOid}/statuses`)).filter((s) => s.context === 'contributor-tested');
-  return { state: v.state, labels: v.labels.map((l) => l.name), mergedBy: v.mergedBy?.login, locked: statuses.length > 0 };
+  // newest first. pipeline-ready posts a pending one on every pull request; only success is the lock.
+  return { state: v.state, labels: v.labels.map((l) => l.name), mergedBy: v.mergedBy?.login, locked: statuses[0]?.state === 'success' };
 };
 
 const HAPPY_FILES = (dir) => {
@@ -151,7 +152,7 @@ async function refusals() {
   writeFileSync(RESULTS, '| case | result | PR | run | shipper said | PR afterwards |\n|---|---|---|---|---|---|\n');
   const src = (d) => write(d, 'src/main/lane-case.js', 'export const x = 1;\n');
   const cases = [
-    { name: 'also touches a workflow', want: /\.github\/workflows\/pipeline-sneaky\.yml is not under src/, branch: 'product/c-workflow', edit: (d) => { src(d); write(d, '.github/workflows/pipeline-sneaky.yml', 'name: sneaky\non: workflow_dispatch\njobs: {}\n'); } },
+    { name: 'also touches a workflow', want: /\.github\/workflows\/pipeline-sneaky\.yml is a dotfile/, branch: 'product/c-workflow', edit: (d) => { src(d); write(d, '.github/workflows/pipeline-sneaky.yml', 'name: sneaky\non: workflow_dispatch\njobs: {}\n'); } },
     { name: 'touches package.json', want: /package\.json is not under src/, branch: 'product/c-package', edit: (d) => { src(d); const f = join(d, 'package.json'); writeFileSync(f, readFileSync(f, 'utf8').replace('"name"', '"description": "x", "name"')); } },
     { name: 'touches test/corpus', want: /test\/corpus\/lane-row\.json is under test\/corpus/, branch: 'product/c-corpus', edit: (d) => { src(d); write(d, 'test/corpus/lane-row.json', '{}\n'); } },
     { name: 'same, in another case (test/Corpus)', want: /test\/Corpus\/lane-row\.json is under test\/corpus/, branch: 'product/c-corpus-case', edit: (d) => { write(d, 'test/Corpus/lane-row.json', '{}\n'); } },
