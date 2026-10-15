@@ -13,14 +13,18 @@ const manifest = loadManifest();
 // The manifest records its own protection, so it is not counted against itself.
 const SELF = 'scripts/ci/protection.json';
 
-test('the shipper reads its protected lists from the manifest, and keeps no list of its own', () => {
+// The size cap is for CODE kept in a protected file. A dependency lock or a build config is data.
+const isCode = (file) => /\.(mjs|js|yml)$/.test(file);
+
+test('the shipper reads its protected lists from the one map, zones.json, and keeps no list of its own', () => {
   // One list. If someone writes a second one into the shipper, this fails, because the two
   // could then drift and a file the manifest calls protected would be shipped as free.
   assert.deepEqual(LOCK_FILES, manifest.lock);
   assert.deepEqual(SHIP_IT_FILES, manifest.shipIt);
   assert.deepEqual(SHIP_IT_PREFIXES, manifest.shipItPrefixes);
   const source = readFileSync('scripts/ci/ship-pipeline-pr.mjs', 'utf8');
-  assert.match(source, /readFileSync\(new URL\('\.\/protection\.json', import\.meta\.url\)/);
+  assert.match(source, /from '\.\/zones\.mjs'/);
+  assert.doesNotMatch(source, /protection\.json/, 'the shipper reads the map, not the sizes file');
   assert.doesNotMatch(source, /LOCK_FILES\s*=\s*\[|SHIP_IT_FILES\s*=\s*\[/, 'a literal list in the shipper');
 });
 
@@ -37,7 +41,7 @@ test('every protected file exists, and no file is protected twice', () => {
 });
 
 test('a protected file stays small, so ordinary code cannot be parked in it', () => {
-  for (const file of [...manifest.lock, ...manifest.shipIt]) {
+  for (const file of [...manifest.lock, ...manifest.shipIt].filter(isCode)) {
     const { code } = measure(readFileSync(file, 'utf8'));
     // A test of a protected file is all about it, so it may be longer than the file it tests.
     const cap = file.startsWith('test/') ? manifest.maxCodeLinesProtectedTest : manifest.maxCodeLinesProtected;
