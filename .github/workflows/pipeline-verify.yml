@@ -272,7 +272,10 @@ jobs:
           done
           if [ "$final" = "true" ]; then
             node scripts/ci/heal.mjs clear "$PR"
-            node scripts/ci/reply.mjs "$ISSUE" "$REPLY_STATE" "$PR"
+            # A retried fault may already have been announced by pipeline-rescued.yml. Say it once.
+            tell=yes
+            if [ "$HEAL" = "true" ]; then tell="$(node scripts/ci/heal.mjs waiting "$ISSUE" | sed -n 's/^tell=//p')"; fi
+            if [ "$tell" = "yes" ]; then node scripts/ci/reply.mjs "$ISSUE" "$REPLY_STATE" "$PR"; fi
             echo "green=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
