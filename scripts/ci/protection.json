@@ -53,6 +53,7 @@
     "scripts/ci/lock-corpus.mjs": 21,
     "scripts/ci/ready-status.mjs": 2,
     "scripts/ci/reply.mjs": 2,
-    "scripts/ci/ship-pipeline-pr.mjs": 10
+    "scripts/ci/ship-pipeline-pr.mjs": 10,
+    ".github/workflows/pipeline-close.yml": 2
   }
 }

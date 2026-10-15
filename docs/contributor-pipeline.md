@@ -5,7 +5,6 @@ second is for the maintainer. It is written in short plain sentences because it
 is read aloud.
 
 ## If you found a bug
-
 You never need to leave your issue. Everything happens there.
 
 Open a new issue and pick the form that fits.
