@@ -106,15 +106,20 @@ test('the workflow asks the App for only contents and pull requests, never statu
   assert.doesNotMatch(yml, /run:[^\n]*\$\{\{/, 'no expression inside a run line');
 });
 
-test('the agent never runs in a run that a push started, because the action refuses that event', async () => {
+test('the agent runs only in a manual run: a push cannot start it, and a weekly run is judged by whoever last edited its cron line', async () => {
   // Seen live: "Unsupported event type: push". Five repairs failed in one step and five
   // contributors were told a maintainer had to look, when no agent had even started.
   const { load } = await import('js-yaml');
   const wf = load(readFileSync('.github/workflows/pipeline-keep-current.yml', 'utf8'));
-  assert.match(wf.jobs.repair.if, /github\.event_name != 'push'/);
+  // A weekly run's actor is the account that last changed the cron line: a person, or the App that merged
+  // it (a bot the agent refuses, and `allowed_bots` names the Actions bot only). So a weekly run, like a
+  // push, only updates and starts the manual run, whose actor is the Actions bot.
+  assert.match(wf.jobs.repair.if, /github\.event_name == 'workflow_dispatch'/);
+  assert.doesNotMatch(wf.jobs.repair.if, /push|schedule/);
   assert.match(wf.jobs.redispatch.if, /github\.event_name == 'push'/);
-  // A repair cannot be reached from a push, and a manual run cannot start another manual run.
-  assert.doesNotMatch(wf.jobs.redispatch.if, /workflow_dispatch|schedule/);
+  assert.match(wf.jobs.redispatch.if, /github\.event_name == 'schedule'/);
+  // A manual run cannot start another manual run.
+  assert.doesNotMatch(wf.jobs.redispatch.if, /workflow_dispatch/);
 });
 
 test('the push starts ONE manual run for all conflicts, not one per pull request, with no secret', async () => {
@@ -220,10 +225,10 @@ test('a faulty pull request that also conflicts is handed on once, marked as a r
   assert.deepEqual(out.healed, []);
 });
 
-test('the push run does not claim, the others do, and the repair is told it is a retry', async () => {
+test('only the manual run claims a retry, and the repair is told it is one', async () => {
   const { load } = await import('js-yaml');
   const wf = load(readFileSync('.github/workflows/pipeline-keep-current.yml', 'utf8'));
   const keep = wf.jobs.update.steps.find((s) => s.id === 'keep');
-  assert.equal(keep.env.CLAIM, "${{ github.event_name != 'push' }}");
+  assert.equal(keep.env.CLAIM, "${{ github.event_name == 'workflow_dispatch' }}");
   assert.equal(wf.jobs.repair.with.heal, '${{ matrix.item.heal }}');
 });

@@ -18,7 +18,7 @@ name: pipeline-keep-current
 # three times would only fail a fourth time on the next push, and every try spends
 # the maintainer's own quota. One kind is not left alone: a pull request stuck by a
 # FAULT of the pipeline itself (`pipeline-fault`, see `scripts/ci/heal.mjs`) gets ONE
-# retry, taken by the run that is not a push. Green clears the labels.
+# retry, taken by the manual run. Green clears the labels.
 on:
   push:
     branches: [testing]
@@ -67,8 +67,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           MERGE_TOKEN: ${{ steps.app.outputs.token }}
           PR_NUMBER: ${{ inputs.pr_number }}
-          # A push only looks. The run it starts is the one that takes the retry.
-          CLAIM: ${{ github.event_name != 'push' }}
+          # A push or a weekly run only looks. The manual run it starts is the one that takes the retry.
+          CLAIM: ${{ github.event_name == 'workflow_dispatch' }}
         run: node scripts/ci/keep-current.mjs
 
   # The agent cannot run in a run that a push started: the action accepts issue
@@ -81,7 +81,7 @@ jobs:
   # branches are skipped), finds the same conflicts, and repairs them one at a time.
   redispatch:
     needs: update
-    if: github.event_name == 'push' && needs.update.outputs.conflicts != '[]' && needs.update.outputs.conflicts != ''
+    if: (github.event_name == 'push' || github.event_name == 'schedule') && needs.update.outputs.conflicts != '[]' && needs.update.outputs.conflicts != ''
     runs-on: ubuntu-latest
     # Can start a workflow, holds no secret and no environment: the job with the App
     # key must never be able to start one.
@@ -97,8 +97,9 @@ jobs:
   # maintainer's quota, and the agent works in its own checkout of the branch.
   repair:
     needs: update
-    # Never in a run a push started. See `redispatch` above.
-    if: github.event_name != 'push' && needs.update.outputs.conflicts != '[]' && needs.update.outputs.conflicts != ''
+    # Only in a manual run. A push cannot start the agent, and a weekly run's actor is whoever last
+    # edited its cron line, which may be a bot the agent refuses. See `redispatch` above.
+    if: github.event_name == 'workflow_dispatch' && needs.update.outputs.conflicts != '[]' && needs.update.outputs.conflicts != ''
     strategy:
       fail-fast: false
       max-parallel: 1
