@@ -189,7 +189,7 @@ Every file is on the allow list. Scripts are read by their changed lines, workfl
 - A contributor has no write access: `needs-owner` is set and the run is red.
   Run `add-contributor.mjs` again, ask them to accept, then run `pipeline-fix`.
 - Checks stay red after three repairs: the pull request gets `needs-owner` and a
-  technical comment. Read it. It may say a check is wrong. That change is yours.
+  technical comment. Read it. It may say a check is wrong. That change is yours. A flaky test never gets here: its job runs it twice (`retry-once.mjs`).
 - A fix whose body says "Reverses a standing note" never merges by itself. Read
   that section first. The contributor can only say the bug is gone. They cannot
   see what was removed.

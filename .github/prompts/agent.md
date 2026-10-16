@@ -352,6 +352,21 @@ contributor. Write only to pull request #<PR_NUMBER>.
    or a corpus row to turn it green: this repository calls that
    gaming the gate, and it is the one thing that will get your work
    reverted outright.
+   A FLAKE IS NOT A FAULT. The pipeline already runs a failing check
+   a second time. If a test is still in the log and it is in a file your
+   diff does not touch (see `git diff origin/testing --stat`), and
+   nothing your diff changes is on its path, run that one test file
+   again, once:
+     node --test --test-concurrency=1 <the test file>
+   If it passes, it was timing. Do NOT label anything and do NOT edit
+   the test. Push an empty commit so the checks run again:
+     git commit --allow-empty -m "Run the checks again: a test this change does not touch failed once"
+     git push origin HEAD
+   Write the result `revised`. If it fails again on its own, the test
+   is broken or the cause is yours: find out which before anything else.
+   `needs-owner` is never the answer to a test your diff does not touch
+   that passes on a second run.
+
 3. If the CHECK is what is wrong, do not change it. That means: a
    check broken on its own, a rule no correct fix could meet, or a
    failure caused by something outside this branch such as `main`

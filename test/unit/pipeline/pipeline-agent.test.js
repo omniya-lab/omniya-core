@@ -317,6 +317,16 @@ test('the pull request names the issue, and no longer promises that closing the 
   assert.match(prompt, /Do not\s+say anything about closing the issue/);
 });
 
+test('a repair runs a test its diff does not touch once more, and never labels it', () => {
+  const section = prompt.slice(prompt.indexOf('MODE checks-failed'), prompt.indexOf('KEEP THE BRANCH UP TO DATE ====='));
+  assert.match(section, /A FLAKE IS NOT A FAULT/);
+  assert.match(section, /a file your diff does not touch/);
+  assert.match(section, /run that one test file again, once/);
+  assert.match(section, /Do NOT label anything and do NOT edit the test/);
+  assert.match(section, /git commit --allow-empty/);
+  assert.match(section, /`needs-owner` is never the answer to a test your diff does not touch that passes on a second run/);
+});
+
 test('a repair never edits a check to make it pass, and can say the check is wrong', () => {
   const section = prompt.slice(prompt.indexOf('MODE checks-failed'));
   assert.match(section, /Never edit a check, a workflow, a test\s+or a corpus row/);
