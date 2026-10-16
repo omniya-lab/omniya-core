@@ -180,6 +180,19 @@ const STATES_DEF = {
       'You do not need to do anything.'
     ]
   },
+  // The fix is the same one the contributor tested. Only the app around it moved on, and the
+  // branch was brought up to date. Their "it works" still holds, so it is sent on. Said once.
+  carried: {
+    message: 'none',
+    lines: [
+      'Thank you for testing.',
+      'The app around your fix changed since you tried it, but your fix did not.',
+      'Your answer still holds, so I sent it on. You do not need to test again.',
+      'It will merge by itself when the checks finish, and the test build will update.',
+      'This issue closes when it merges.',
+      'You do not need to do anything.'
+    ]
+  },
   'sent-automation': {
     message: 'none',
     lines: [
@@ -230,7 +243,7 @@ export const LABELS = {
  * owner's inbox must not list an issue that is moving. The states that still
  * need a person (stuck, failed, maintainer, the sent-* hand-offs) keep it.
  */
-export const CLEARS_NEEDS_OWNER = ['started', 'ready', 'revised', 'asked', 'answered', 'sent'];
+export const CLEARS_NEEDS_OWNER = ['started', 'ready', 'revised', 'asked', 'answered', 'sent', 'carried'];
 
 /**
  * One pass of the cleaning rules. `cleanMessage` repeats it until nothing changes,
