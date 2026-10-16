@@ -63,6 +63,13 @@ export async function verifyBranch(
 
   const mergeable = () =>
     run(['pr', 'view', String(pr), '--repo', repo, '--json', 'mergeable', '--jq', '.mergeable']).trim();
+  const behind = () => {
+    try {
+      return Number(run(['api', `repos/${repo}/compare/testing...${branch}`, '--jq', '.behind_by']).trim()) || 0;
+    } catch {
+      return 0;
+    }
+  };
   const conflict = () => ({ green: false, sha, failed: ['conflict'], log: CONFLICT_LOG });
 
   // GitHub works the answer out in the background, so UNKNOWN means ask again.
@@ -94,6 +101,10 @@ export async function verifyBranch(
       }
       if (now() > deadline) {
         if (mergeable() === 'CONFLICTING') return conflict();
+        // GitHub may never finish working out the answer (UNKNOWN), and starts no checks for
+        // a pull request that conflicts. A branch that is BEHIND testing and has no checks is
+        // sent to the repair agent, which merges testing in. That push starts the checks.
+        if (behind() > 0) return conflict();
         throw new Error(`${workflow} did not start on ${branch} at ${sha}`);
       }
       await sleep(pollMs);

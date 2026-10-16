@@ -154,3 +154,39 @@ test('tail keeps the end of a long log, where the failure is', () => {
   assert.match(cut, /earlier output cut/);
   assert.equal(tail('short'), 'short');
 });
+
+// A fake `gh` for a branch behind testing whose checks never started.
+function flakyGh({ failedJobs = ['e2e'], secondTry = 'success', behind = 0, mergeable = 'UNKNOWN', started = true } = {}) {
+  const calls = [];
+  let clock = 1_000_000;
+  let attempt = 1;
+  const gh = (args) => {
+    calls.push(args.join(' '));
+    if (args[0] === 'api' && args[1].includes('/compare/')) return `${behind}\n`;
+    if (args[0] === 'api') return `${SHA}\n`;
+    if (args[0] === 'pr' && args[1] === 'view') return `${mergeable}\n`;
+    if (args[0] === 'run' && args[1] === 'list') {
+      if (!started) return '[]';
+      const workflow = args[args.indexOf('--workflow') + 1];
+      return JSON.stringify([{ databaseId: workflow === 'pr-checks.yml' ? 501 : 502, headSha: SHA, createdAt: new Date(clock).toISOString(), status: 'completed', conclusion: workflow === 'pr-checks.yml' ? 'failure' : 'success' }]);
+    }
+    if (args[0] === 'run' && args[1] === 'rerun') { attempt = 2; return ''; }
+    if (args[0] === 'run' && args[1] === 'view' && args.includes('jobs')) return JSON.stringify(failedJobs);
+    if (args[0] === 'run' && args[1] === 'view' && args.includes('--json')) return JSON.stringify({ status: 'completed', conclusion: attempt > 1 ? secondTry : 'failure', attempt, databaseId: 501 });
+    if (args[0] === 'run' && args[1] === 'view') return 'the failed log\n';
+    throw new Error(`unexpected gh call: ${args.join(' ')}`);
+  };
+  return { gh, calls, now: () => clock, sleep: async (ms) => { clock += ms; } };
+}
+
+test('no checks, mergeability UNKNOWN, branch behind testing: it is a conflict for the repair agent', async () => {
+  const f = flakyGh({ started: false, behind: 3 });
+  const result = await verifyBranch(f, { repo: REPO, branch: BRANCH, pr: 26, pollMs: 10 });
+  assert.equal(result.green, false);
+  assert.deepEqual(result.failed, ['conflict']);
+});
+
+test('no checks and not behind testing is still a fault', async () => {
+  const f = flakyGh({ started: false, behind: 0 });
+  await assert.rejects(verifyBranch(f, { repo: REPO, branch: BRANCH, pr: 26, pollMs: 10 }), /did not start/);
+});
