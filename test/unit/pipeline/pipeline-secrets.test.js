@@ -70,7 +70,10 @@ test('no other workflow mentions the two secrets', () => {
     'pipeline-keep-current.yml',
     // Posts the merge-box status after the owner's own approval. It runs no agent, asks the App for
     // `statuses: write` only, and never checks out the pull request. See `pipeline-ready.yml`.
-    'pipeline-ready.yml'
+    'pipeline-ready.yml',
+    // Carries a contributor's "it works" over a branch update. Runs no agent and checks out `testing`; the
+    // fix branches are read by git as data. See `pipeline-carry.yml` and `scripts/ci/carry-over.mjs`.
+    'pipeline-carry.yml'
   ]);
   for (const p of parsed) {
     if (pipeline.has(p.f)) continue;
@@ -87,7 +90,9 @@ test('only the hand-off job asks the App for commit statuses', () => {
       const allowed =
         (p.f === 'pipeline-followup.yml' && name === 'handoff') ||
         (p.f === 'pipeline-ship.yml' && name === 'ship') ||
-        (p.f === 'pipeline-ready.yml' && name === 'ready');
+        (p.f === 'pipeline-ready.yml' && name === 'ready') ||
+        // The same hand-off, run again for a head the contributor's approval carries to (`carry-over.mjs`).
+        (p.f === 'pipeline-carry.yml' && name === 'carry');
       assert.equal(hit, allowed, `${p.f}:${name}`);
     }
   }
