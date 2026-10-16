@@ -43,19 +43,19 @@ test('every refusal carries a userMessage, defaulting to the product sentence', 
 
 test('the Error message itself stays the product sentence, whatever the composer shows', () => {
   // Nothing downstream that reads `.message` changes behaviour.
-  assert.equal(refusalFor('⠭⠘⠆⠬⠼⠂').message, UNSUPPORTED_MESSAGE);
+  assert.equal(refusalFor('⠭⠘⠆⠷').message, UNSUPPORTED_MESSAGE);
 });
 
 // -- the reasons an author can act on -----------------------------------------
 
 test('a superscript that never returns to the baseline names the missing cell', () => {
-  const { userMessage } = refusalFor('⠭⠘⠆⠬⠼⠂');
+  const { userMessage } = refusalFor('⠭⠘⠆⠷');
   assert.match(userMessage, /superscript/i);
   assert.match(userMessage, /baseline indicator \(dot 5\)/i);
 });
 
 test('a subscript that never returns to the baseline names the missing cell', () => {
-  const { userMessage } = refusalFor('⠭⠰⠁⠬⠼⠂');
+  const { userMessage } = refusalFor('⠭⠰⠁⠷');
   assert.match(userMessage, /subscript/i);
   assert.match(userMessage, /baseline indicator \(dot 5\)/i);
 });
@@ -89,7 +89,7 @@ test('a cell that starts no Nemeth symbol keeps the generic sentence, being ambi
 // -- the constraint the old rule was protecting --------------------------------
 
 test('no userMessage cites a rule number, which is what an author cannot look up', () => {
-  const cells = ['⠭⠘⠆⠬⠼⠂', '⠭⠰⠁⠬⠼⠂', '⠜⠭', '⠷⠭⠬⠼⠂', '⠭⠀⠨⠅⠀⠒', '⠭⠬⠫', '⠷⠭⠠⠀⠽⠾'];
+  const cells = ['⠭⠘⠆⠷', '⠭⠰⠁⠷', '⠜⠭', '⠷⠭⠬⠼⠂', '⠭⠀⠨⠅⠀⠒', '⠭⠬⠫', '⠷⠭⠠⠀⠽⠾'];
   for (const input of cells) {
     const { userMessage } = refusalFor(input);
     assert.doesNotMatch(userMessage, /BANA|Rule \d|\d+\.\d+/, `rule number leaked for ${input}: ${userMessage}`);

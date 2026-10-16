@@ -120,3 +120,21 @@ test('the explorer inside an equation keeps focus and its keys', { timeout: 90_0
   assert.deepEqual(await selection(page), { from: 9, to: 10, node: 'math' });
   assert.equal(await page.locator('#editor-host .math-node').getAttribute('role'), 'img', 'the name returns');
 });
+
+// Issue #73: JAWS spelled "n-th" letter by letter. An exponent that is, or ends
+// in, the letter n is said "enth". The app is the truth here, not the unit test.
+test('an exponent of n is named "enth", as the contributor asked', { timeout: 90_000 }, async (t) => {
+  const dataDirectory = await mkdtemp(path.join(os.tmpdir(), 'omniya-e2e-'));
+  const session = await launchApp({ dataDirectory });
+  t.after(() => session.electronApp.close().catch(() => {}));
+  const { page } = session;
+  await insertEquation(page, { source: '2^n' });
+  await page.keyboard.type(' ');
+  await insertEquation(page, { source: '2^{x+n}' });
+  await page.waitForFunction(() => {
+    const labels = [...document.querySelectorAll('.math-node')].map((n) => n.getAttribute('aria-label'));
+    return labels.length === 2 && labels.every(Boolean);
+  }, null, { timeout: 30_000 });
+  const labels = await page.evaluate(() => [...document.querySelectorAll('.math-node')].map((n) => n.getAttribute('aria-label')));
+  assert.deepEqual(labels, ['2 to the enth power', '2 raised to the x plus enth power']);
+});
