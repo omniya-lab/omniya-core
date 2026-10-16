@@ -65,7 +65,7 @@ export function buildSreMathmaps(src, dest) {
   });
 }
 
-export const SRE_MATHMAPS_SOURCE = fileURLToPath(new URL('../node_modules/@mathjax/src/bundle/sre/mathmaps', import.meta.url));
-export const SRE_MATHMAPS_DEST = fileURLToPath(new URL('../src/renderer/sre-mathmaps', import.meta.url));
+export const SRE_MATHMAPS_SOURCE = fileURLToPath(new URL('../../node_modules/@mathjax/src/bundle/sre/mathmaps', import.meta.url));
+export const SRE_MATHMAPS_DEST = fileURLToPath(new URL('../../src/renderer/sre-mathmaps', import.meta.url));
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) buildSreMathmaps(SRE_MATHMAPS_SOURCE, SRE_MATHMAPS_DEST);

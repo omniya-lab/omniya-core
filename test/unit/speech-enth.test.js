@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import * as sre from 'speech-rule-engine/lib/sre.js';
-import { buildSreMathmaps, SRE_MATHMAPS_SOURCE } from '../../scripts/build-sre-mathmaps.mjs';
+import { buildSreMathmaps, SRE_MATHMAPS_SOURCE } from '../../scripts/build/build-sre-mathmaps.mjs';
 
 // Issue #73: JAWS spelled out "n-th". The reader wants "enth". Same locale,
 // domain and style as src/renderer/mathjax-config.js.
