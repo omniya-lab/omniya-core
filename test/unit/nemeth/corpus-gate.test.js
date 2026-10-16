@@ -4,12 +4,12 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { runCoverage } from '../../../scripts/grading/nemeth-coverage.mjs';
+import { runCoverage } from '../../../scripts/nemeth-coverage.mjs';
 import { NemethUnsupportedError, parseNemeth } from '../../../src/domain/nemeth/index.js';
 
 // The corpus gate: grades the parser against all 613 cases in the Tier-1
 // correctness corpus. Every case lands in exactly one of four buckets --
-// PASS, REFUSE, DISAGREE, ERROR (see scripts/grading/nemeth-coverage.mjs for the
+// PASS, REFUSE, DISAGREE, ERROR (see scripts/nemeth-coverage.mjs for the
 // exact definitions). Most cases REFUSE today because the parser supports a
 // deliberately narrow slice; that is expected and correct.
 //
@@ -22,7 +22,7 @@ import { NemethUnsupportedError, parseNemeth } from '../../../src/domain/nemeth/
 // on purpose, not something that should happen as a side effect of an
 // unrelated change.
 //
-// `runCoverage` (imported from scripts/grading/nemeth-coverage.mjs, the same
+// `runCoverage` (imported from scripts/nemeth-coverage.mjs, the same
 // function that generates docs/nemeth-v2/coverage.md) is run exactly once
 // here so this file's assertions and the committed report are provably
 // looking at the same computation.
