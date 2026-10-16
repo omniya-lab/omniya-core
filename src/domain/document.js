@@ -50,12 +50,15 @@ export function nameFromDoc(doc) {
   return docTitle(doc).replace(/\s+/g, ' ').trim() || DEFAULT_NOTE_NAME;
 }
 
-/** The first line of the body that has any text, for the notes list. */
+/**
+ * The first line of the body that has any text, for the notes list. A line of exactly `max`
+ * characters fits, so it is shortened only when it is longer than `max`.
+ */
 export function docSnippet(doc, max = 80) {
   for (const block of doc?.content ?? []) {
     if (isTitle(block)) continue;
     const text = (block.content ?? []).map((n) => (n.type === 'text' ? n.text : '[equation]')).join('').trim();
-    if (text) return text.length >= max ? `${text.slice(0, max - 1)}…` : text;
+    if (text) return text.length > max ? `${text.slice(0, max - 1)}…` : text;
   }
   return '';
 }
