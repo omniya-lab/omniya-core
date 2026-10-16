@@ -55,6 +55,9 @@ export function docSnippet(doc, max = 80) {
   for (const block of doc?.content ?? []) {
     if (isTitle(block)) continue;
     const text = (block.content ?? []).map((n) => (n.type === 'text' ? n.text : '[equation]')).join('').trim();
+    // A line of exactly `max` characters fits, so it is kept whole. Cutting at
+    // `>=` shortened it to max-1 letters and a dots mark, which a screen reader
+    // reads as "seventy nine letters and three dots" for no reason.
     if (text) return text.length > max ? `${text.slice(0, max - 1)}…` : text;
   }
   return '';
