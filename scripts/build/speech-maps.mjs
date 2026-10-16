@@ -1,6 +1,6 @@
 import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { patchEnglishMathmap } from '../src/renderer/speech-rules.js';
+import { patchEnglishMathmap } from '../../src/renderer/speech-rules.js';
 
 const SOURCE = 'node_modules/@mathjax/src/bundle/sre/mathmaps';
 
@@ -8,7 +8,7 @@ const SOURCE = 'node_modules/@mathjax/src/bundle/sre/mathmaps';
  * Copy MathJax's speech rule files to `outDir` with the English ClearSpeak
  * wording from `src/renderer/speech-rules.js` applied. The speech worker loads
  * rule files by URL, so a patched copy is how a rule changes (see that file).
- * Generated, gitignored, rebuilt by `scripts/build-editor.mjs`.
+ * Generated, gitignored, rebuilt by `scripts/build/build-editor.mjs`.
  */
 export async function writePatchedMathmaps(outDir, root = process.cwd()) {
   const from = path.join(root, SOURCE);

@@ -14,7 +14,7 @@ globalThis.MathJax = {
       mathjax: '../../node_modules/@mathjax/src/bundle',
       fonts: '../../node_modules/@mathjax',
       sre: '../../node_modules/@mathjax/src/bundle/sre',
-      // Not the installed copy: a patched one that scripts/build-editor.mjs writes
+      // Not the installed copy: a patched one that scripts/build/build-editor.mjs writes
       // next to the page, with how a function with a power is spoken (see
       // speech-rules.js). Every other rule in it is the installed one.
       mathmaps: './mathmaps'

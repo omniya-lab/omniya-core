@@ -8,7 +8,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { convertLatexToMathML } from '../../src/main/mathml.js';
-import { writePatchedMathmaps } from '../../scripts/speech-maps.mjs';
+import { writePatchedMathmaps } from '../../scripts/build/speech-maps.mjs';
 
 const dir = path.join(await mkdtemp(path.join(os.tmpdir(), 'omniya-sre-')), 'mathmaps');
 await writePatchedMathmaps(dir);
