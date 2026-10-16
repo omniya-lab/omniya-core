@@ -105,9 +105,15 @@ export function decide({ commenter, issueAuthor, association, prCount, commentId
   if (!bot) return { confirm: false, reason: 'no-bot-comment' };
   if (bot.id > Number(commentId)) return { confirm: false, reason: 'bot-spoke-after' };
   if (!READY_STATES.includes(replyState(bot.body))) return { confirm: false, reason: 'newest-not-a-build' };
-  if (!headBuiltAt || !(Date.parse(headBuiltAt) <= Date.parse(bot.created_at))) return { confirm: false, reason: 'head-not-built-before-build-comment' };
+  if (!headBuiltAt) return { confirm: false, reason: 'head-not-built' };
+  // The branch was brought up to date (or repaired) after the contributor was given a build, and its
+  // build finished after that comment. `rebuilt` lets the caller say so once. Nothing merges on this.
+  if (!(Date.parse(headBuiltAt) <= Date.parse(bot.created_at))) return { confirm: false, reason: REBUILT };
   return { confirm: true, reason: 'ok' };
 }
+
+/** The reason a confirmation is not taken because the head was built AFTER the build comment. */
+export const REBUILT = 'head-rebuilt-after-build-comment';
 
 /** The build job whose result says "this commit was built": the job name in `pr-build.yml`. */
 export const BUILD_CHECK = 'pack-mac';

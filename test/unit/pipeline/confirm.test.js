@@ -82,8 +82,8 @@ test('everything else is refused, quietly', () => {
   no({ issueComments: [bot(10, reply('ready')), bot(20, QUESTION_MARKER + '\nWhich key?')] }, 'newest-not-a-build');
   no({ issueComments: [bot(10, reply('ready')), bot(20, 'Thank you for the comment. I did not start.')] }, 'newest-not-a-build');
   no({ issueComments: [bot(20, reply('ready')), bot(150, reply('revised'))] }, 'bot-spoke-after');
-  no({ headBuiltAt: '2026-10-15T11:00:00Z' }, 'head-not-built-before-build-comment');
-  no({ headBuiltAt: '' }, 'head-not-built-before-build-comment');
+  no({ headBuiltAt: '2026-10-15T11:00:00Z' }, 'head-rebuilt-after-build-comment');
+  no({ headBuiltAt: '' }, 'head-not-built');
 });
 
 const SHA = 'a'.repeat(40);
@@ -130,7 +130,7 @@ test('the head commit is judged by GitHub\'s build record of THAT sha, and by no
 
 test('a commit pushed after the build comment has no finished build before it: refused', () => {
   const late = fakeGh({ checkRuns: [checkRun('2026-10-15T10:30:00Z')] });
-  assert.deepEqual(confirmFromGitHub({ ...asked, sha: NEWSHA }, late.run), { confirm: false, reason: 'head-not-built-before-build-comment' });
+  assert.deepEqual(confirmFromGitHub({ ...asked, sha: NEWSHA }, late.run), { confirm: false, reason: 'head-rebuilt-after-build-comment' });
   const none = fakeGh({ checkRuns: [] });
   assert.equal(confirmFromGitHub({ ...asked, sha: NEWSHA }, none.run).confirm, false, 'a new push whose build has not started');
   const failed = fakeGh({ checkRuns: [checkRun('2026-10-15T09:00:00Z', 'failure')] });
