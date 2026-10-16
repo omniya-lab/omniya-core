@@ -13,6 +13,13 @@
 // the page (see `patchMathmapsDir`) and `mathjax-config.js` points the loader
 // at it. Only English ClearSpeak is touched; every other rule is the engine's own.
 //
+// Issue #68 is the same kind of change for a symbol. The contributor asked that the
+// two Nemeth angle brackets (BANA 19.1) be read "open bracket" and "close bracket".
+// The engine's English symbol data says "left angle bracket" and "right angle
+// bracket" for U+27E8 and U+27E9. It gives the square brackets a ClearSpeak entry
+// of "open bracket" and "close bracket"; the angle brackets get the same entry, so
+// only ClearSpeak (what the app speaks) changes and MathSpeak keeps its words.
+//
 // The rules only match a function name with an integer or a plain letter as its
 // exponent and an argument after it. The inverse (cos^-1), a negative exponent, a
 // compound exponent and a function with no argument fall through to the engine's
@@ -51,6 +58,11 @@ const POWERS = [
     `${NAME}; [t] "to the"; [n] children/*[1]/children/*[2] (grammar:ordinal:noArticle); ${OF_ARGUMENT}`]
 ];
 
+const ENGLISH_DELIMITERS = 'en/symbols/math_delimiters.min';
+
+// code point of the symbol -> what ClearSpeak says. Written as the contributor wrote it.
+const ANGLE_BRACKETS = { '27E8': 'open bracket', '27E9': 'close bracket' };
+
 /** The patched English mathmap: a copy, the input is not changed. */
 export function patchEnglishMathmap(en) {
   const patched = structuredClone(en);
@@ -63,6 +75,15 @@ export function patchEnglishMathmap(en) {
     const id = `function-power-${name}`;
     rules.rules.push(['Precondition', id, 'default', ...POWERED_FUNCTION, ...exponent]);
     actions.rules.push(['Action', id, `[p] (pause:short); ${words}`]);
+  }
+  const delimiters = patched[ENGLISH_DELIMITERS];
+  const symbols = delimiters && Object.values(delimiters);
+  for (const [key, words] of Object.entries(ANGLE_BRACKETS)) {
+    const symbol = symbols?.find((entry) => entry?.key === key);
+    if (!symbol?.mappings) {
+      throw new Error(`speech rules: the English symbol ${key} is not where it was; update speech-rules.js for this speech-rule-engine version`);
+    }
+    symbol.mappings.clearspeak = { ...symbol.mappings.clearspeak, default: words };
   }
   return patched;
 }

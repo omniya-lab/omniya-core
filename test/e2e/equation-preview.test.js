@@ -264,3 +264,13 @@ for (const [source, reads] of [
     await waitForPreview(page, `Reads as: ${reads}`);
   });
 }
+
+// Issue #68. The two angle brackets are read with the contributor's words. They come from
+// the same patched speech rules as the function powers above (src/renderer/speech-rules.js).
+test('angle brackets are read "open bracket" and "close bracket"', { timeout: 60_000 }, async (t) => {
+  const { page } = await start(t);
+  await focusDocument(page);
+  await openEquationDock(page, 'latex');
+  await field(page).fill('\\langle a\\rangle');
+  await waitForPreview(page, 'Reads as: open bracket a close bracket');
+});
