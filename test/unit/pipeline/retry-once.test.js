@@ -68,3 +68,25 @@ test('for real: a command that fails the first time only passes, and one that al
   const fail = spawnSync(process.execPath, [script, process.execPath, '-e', 'process.exit(7)'], { env, encoding: 'utf8' });
   assert.equal(fail.status, 7);
 });
+
+test('for real: a try that hangs is stopped at the limit and tried once more', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'retry-'));
+  const marker = join(dir, 'seen');
+  const hangs = join(dir, 'hangs.mjs');
+  writeFileSync(hangs, `import { existsSync, writeFileSync } from 'node:fs';\nif (existsSync(${JSON.stringify(marker)})) process.exit(0);\nwriteFileSync(${JSON.stringify(marker)}, '1');\nsetInterval(() => {}, 1000);\n`);
+  const script = new URL('../../../scripts/ci/retry-once.mjs', import.meta.url).pathname;
+  const summaryFile = join(dir, 'summary.md');
+  const env = { PATH: process.env.PATH, GITHUB_STEP_SUMMARY: summaryFile };
+  // 0.05 minutes is three seconds.
+  const out = spawnSync(process.execPath, [script, '--limit-min', '0.05', process.execPath, hangs], { env, encoding: 'utf8', timeout: 60_000 });
+  assert.equal(out.status, 0, out.stderr);
+  assert.match(readFileSync(summaryFile, 'utf8'), /hung once and passed/);
+  const always = spawnSync(process.execPath, [script, '--limit-min', '0.05', process.execPath, '-e', 'setInterval(() => {}, 1000)'], { env, encoding: 'utf8', timeout: 60_000 });
+  assert.equal(always.status, 124, 'a try that hangs both times stays red');
+});
+
+test('a limit without a number is refused', () => {
+  const script = new URL('../../../scripts/ci/retry-once.mjs', import.meta.url).pathname;
+  const out = spawnSync(process.execPath, [script, '--limit-min', 'soon', 'true'], { env: { PATH: process.env.PATH }, encoding: 'utf8' });
+  assert.notEqual(out.status, 0);
+});
