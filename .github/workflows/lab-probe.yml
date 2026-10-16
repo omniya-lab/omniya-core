@@ -1,0 +1,24 @@
+name: lab-probe
+
+# LAB ONLY. Reports who GitHub says started a scheduled run, and what kind of account that is.
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  who:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          ACTOR: ${{ github.actor }}
+          TRIGGERING: ${{ github.triggering_actor }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          echo "event=$EVENT actor=$ACTOR triggering_actor=$TRIGGERING"
+          echo "actor type: $(gh api "users/${ACTOR%\[bot\]}" --jq .type 2>&1 || true)"
