@@ -23,8 +23,8 @@
     "test:inspect": "node test/inspect.mjs",
     "prejudge:capture": "node scripts/build/build-editor.mjs",
     "judge:capture": "node scripts/dev/judge-capture.mjs",
-    "nemeth:coverage": "node scripts/grading/nemeth-coverage.mjs",
-    "nemeth:utility": "node scripts/grading/nemeth-utility.mjs"
+    "nemeth:coverage": "node scripts/nemeth-coverage.mjs",
+    "nemeth:utility": "node scripts/nemeth-utility.mjs"
   },
   "keywords": [
     "mathematics",

@@ -59,7 +59,7 @@ test('each zone holds what the owner said it holds', () => {
     'package.json', 'package-lock.json', 'electron-builder.yml', 'test/unit/pipeline/hand-off.test.js']) {
     assert.equal(zone(path), 'shipIt', path);
   }
-  for (const path of ['test/corpus/nemeth-v1.json', 'scripts/grading/nemeth-coverage.mjs', 'test/helpers/mathml-compare.js']) {
+  for (const path of ['test/corpus/nemeth-v1.json', 'scripts/nemeth-coverage.mjs', 'test/helpers/mathml-compare.js']) {
     assert.equal(zone(path), 'goalposts', path);
   }
   for (const path of ['scripts/ci/zones.json', 'scripts/ci/ship-pipeline-pr.mjs', '.github/workflows/pipeline-ship.yml', 'test/unit/pipeline/zones.test.js']) {
@@ -85,7 +85,7 @@ test('a change that touches only automatic paths needs nothing; any other follow
   assert.equal(needsFor(['src/a.js', 'test/unit/x.test.js', 'docs/a.md', 'scripts/build/speech-maps.mjs', '.gitignore']).needs, 'nothing');
   assert.deepEqual(needsFor(['src/a.js', 'package.json']), { needs: 'ship-it', by: [{ file: 'package.json', zone: 'shipIt' }] });
   assert.equal(needsFor(['src/a.js', 'test/corpus/nemeth-v1.json']).needs, 'owner');
-  assert.equal(needsFor(['scripts/grading/nemeth-utility.mjs']).needs, 'owner');
+  assert.equal(needsFor(['scripts/nemeth-utility.mjs']).needs, 'owner');
   assert.equal(needsFor(['package.json', 'scripts/ci/zones.json']).needs, 'lock');
   assert.equal(needsFor(['unknown/file']).needs, 'owner');
   assert.equal(needsFor([]).needs, 'nothing');
@@ -104,7 +104,7 @@ test('the contributor hand-off and the product lane read the same map', () => {
     [['src/a.js', '.github/workflows/pr-build.yml'], false],
     [['src/a.js', 'package.json'], false],
     [['src/a.js', 'test/corpus/nemeth-v1.json'], false],
-    [['src/a.js', 'scripts/grading/nemeth-coverage.mjs'], false],
+    [['src/a.js', 'scripts/nemeth-coverage.mjs'], false],
     [['test/unit/pipeline/hand-off.test.js'], false],
     [['src/a.js', 'scripts/mystery.mjs'], false]
   ];
@@ -137,7 +137,7 @@ test('REPLAY of PR 84 and PR 72 after the scripts are moved: both merge by thems
 
 test('REPLAY of a hostile change: scripts/ci, a workflow, package.json, the corpus, a gate, or the map itself all go to the owner', () => {
   const hostile = ['scripts/ci/hand-off.mjs', '.github/workflows/testing-app.yml', 'package.json', 'package-lock.json', 'electron-builder.yml',
-    'test/corpus/nemeth-v1.json', 'test/Corpus/nemeth-v1.json', 'scripts/grading/nemeth-coverage.mjs', 'test/helpers/mathml-compare.js',
+    'test/corpus/nemeth-v1.json', 'test/Corpus/nemeth-v1.json', 'scripts/nemeth-coverage.mjs', 'test/helpers/mathml-compare.js',
     'scripts/ci/zones.json', '.claude/settings.json', '.github/CODEOWNERS', 'test/unit/pipeline/zones.test.js'];
   for (const bad of hostile) {
     const files = ['src/domain/nemeth/parser.js', 'scripts/build/speech-maps.mjs', bad];
@@ -231,7 +231,7 @@ test('FAILS: a build script called from a write job', () => {
   assert.match(violations(job('      - run: npm run dist:mac'))[0], /npm/);
   assert.match(violations(job('      - run: npm ci'))[0], /npm/);
   assert.match(violations(job('      - run: node scripts/build/build-editor.mjs'))[0], /not a file under scripts\/ci/);
-  assert.match(violations(job('      - run: node scripts/grading/nemeth-coverage.mjs'))[0], /not a file under scripts\/ci/);
+  assert.match(violations(job('      - run: node scripts/nemeth-coverage.mjs'))[0], /not a file under scripts\/ci/);
   assert.match(violations(job('      - run: node -e "process.exit(0)"'))[0], /node runs -e/);
   assert.match(violations(job('      - run: npx tsc'))[0], /npx/);
 });
