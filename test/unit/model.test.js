@@ -147,3 +147,13 @@ test('the list preview is the first line of the body, with equations as a word, 
   ] }, 'Quadratic');
   assert.equal(docSnippet(doc), 'Roots of [equation]');
 });
+
+test('the list preview keeps a first line that is exactly as long as the limit', () => {
+  const line = 'a'.repeat(80);
+  const doc = docWithTitle({ type: 'doc', content: [
+    { type: 'paragraph' },
+    { type: 'paragraph', content: [{ type: 'text', text: line }] }
+  ] }, 'Long line');
+  assert.equal(docSnippet(doc), line);
+  assert.equal(docSnippet(doc, 79), `${'a'.repeat(78)}…`);
+});
