@@ -74,8 +74,12 @@ jobs:
     #    them apart. The contributor writes on the ISSUE. A comment on a pull
     #    request is the maintainer's conversation and does not start a run.
     #
-    # 2. `@claude` is what makes this cost anything. Without it every "thanks,
-    #    I'll test tonight" would spend a run of somebody's subscription. The
+    # 2. `@claude` is what makes this cost anything. The one exception is a
+    #    comment that holds a word of a confirmation phrase ("works", "fixed",
+    #    "looks good"; `contains` ignores case, and GitHub has no `length`
+    #    function): it may be a plain "it works". `confirm.mjs` decides that below on
+    #    ubuntu, with no agent. Any other comment without `@claude` never starts a job.
+    #    Without it every "thanks, I'll test tonight" would spend a run of somebody's subscription. The
     #    cost of the word is that forgetting it looks like being ignored, which
     #    is why the status comment on the issue says it every time.
     #
@@ -106,7 +110,8 @@ jobs:
       (github.event_name == 'issue_comment' &&
         !github.event.issue.pull_request &&
         github.event.comment.user.type != 'Bot' &&
-        contains(github.event.comment.body, '@claude') &&
+        (contains(github.event.comment.body, '@claude') ||
+         contains(github.event.comment.body, 'works') || contains(github.event.comment.body, 'fixed') || contains(github.event.comment.body, 'looks good')) &&
         !contains(github.event.comment.body, '<!-- omniya-pipeline-'))
     runs-on: ubuntu-latest
     # Least privilege. This job only reads the allowlist and the pull request
@@ -118,7 +123,11 @@ jobs:
       issues: read
     timeout-minutes: 5
     outputs:
-      allowed: ${{ steps.check.outputs.allowed }}
+      # The agent route: `@claude` was written and it is not a confirmation. A bare
+      # confirmation has no `@claude` to need, and when it is one the agent is skipped.
+      allowed: ${{ steps.check.outputs.allowed == 'true' && steps.shape.outputs.mention == 'true' && steps.confirm.outputs.confirm != 'true' && 'true' || 'false' }}
+      confirm: ${{ steps.confirm.outputs.confirm == 'true' && 'true' || 'false' }}
+      confirm_sha: ${{ steps.confirm.outputs.confirm == 'true' && steps.find.outputs.sha || '' }}
       access: ${{ steps.access.outputs.access }}
       number: ${{ steps.issue.outputs.number }}
       author: ${{ steps.issue.outputs.author }}
@@ -180,7 +189,19 @@ jobs:
             echo "author=$author"
             echo "association=$association"
           } >> "$GITHUB_OUTPUT"
+      # Cheap and pure: does the comment name @claude, and is the whole comment a
+      # confirmation phrase? A hand-started rehearsal is never a confirmation. A
+      # comment that is neither stops here: no later step runs and no job starts.
+      - id: shape
+        # The body is read from GitHub by the comment's number (an integer), never
+        # pasted from the event. A rehearsal has no comment, so it uses its input.
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          INPUT_BODY: ${{ inputs.comment_body }}
+        run: node scripts/ci/confirm.mjs --shape
       - id: check
+        if: steps.shape.outputs.mention == 'true' || (github.event_name == 'issue_comment' && steps.shape.outputs.shaped == 'true')
         # Through `env`, never straight into the command line, and deliberately
         # before any `npm ci`: the decision about whether to spend somebody's
         # subscription quota should not wait on an install that can fail.
@@ -291,6 +312,27 @@ jobs:
           fi
           echo "resume=$resume" >> "$GITHUB_OUTPUT"
           echo "question_round=${asked:-0}" >> "$GITHUB_OUTPUT"
+      # A bare "it works", decided with no agent. All of the allow list in
+      # `scripts/ci/confirm.mjs` must hold: the whole comment is a short fixed
+      # phrase, the commenter is the issue's author or the owner, the newest
+      # bot comment is a build to try and older than this comment, and exactly one
+      # open fix exists. Otherwise `confirm=false`, and nothing is posted. The
+      # step only ever READS GitHub. The merge is the `handoff` job below.
+      - id: confirm
+        if: github.event_name == 'issue_comment' && steps.shape.outputs.shaped == 'true' && steps.check.outputs.allowed == 'true' && steps.access.outputs.access != 'false' && steps.find.outputs.count == '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ steps.issue.outputs.number }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          COMMENTER: ${{ github.event.comment.user.login }}
+          ISSUE_AUTHOR: ${{ github.event.issue.user.login }}
+          ASSOCIATION: ${{ github.event.comment.author_association }}
+          FIX_PR: ${{ steps.find.outputs.pr }}
+          # The head commit, read ONCE by the `find` step. The check below and the pin
+          # (`confirm_sha`, then `EXPECTED_SHA`) use this same value, so there is no
+          # second read for a push to land between.
+          HEAD_SHA: ${{ steps.find.outputs.sha }}
+        run: node scripts/ci/confirm.mjs "$ISSUE_NUMBER" "$COMMENT_ID" "$COMMENTER" "$ISSUE_AUTHOR" "$ASSOCIATION" 1 "$FIX_PR" "$HEAD_SHA"
 
   # The maintainer has to finish adding a listed contributor. Same reason as the
   # job of the same name in `pipeline-fix.yml`, and it fails for the same reason.
@@ -572,11 +614,17 @@ jobs:
     # And only the issue's own author, or the owner, can say "it works". The agent
     # decides what a comment means, but it does not decide who may say it: another
     # contributor, who also has write access, must not approve this person's fix.
+    # Two ways in: the agent read the comment and answered `approved`, or the gate
+    # job decided with no agent that it is a bare confirmation (`confirm`). The
+    # author-or-owner rule below holds for both, and it is the same expression.
+    # `!cancelled()` because the agent job is skipped on the second way, and a job
+    # that needs a skipped job is skipped unless its `if` says otherwise.
     if: >-
-      needs.agent.outputs.result == 'approved' &&
+      ${{ !cancelled() &&
+      (needs.agent.outputs.result == 'approved' || needs.allowlist.outputs.confirm == 'true') &&
       github.event_name == 'issue_comment' &&
       (github.event.comment.user.login == github.event.issue.user.login ||
-       github.event.comment.author_association == 'OWNER')
+       github.event.comment.author_association == 'OWNER') }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -602,7 +650,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           MERGE_TOKEN: ${{ steps.app.outputs.token }}
           ISSUE: ${{ needs.allowlist.outputs.number }}
-          PR: ${{ needs.agent.outputs.pr }}
+          PR: ${{ needs.allowlist.outputs.pr }}
+          # Set only for a confirmation no agent read: the hand-off refuses any other head commit.
+          EXPECTED_SHA: ${{ needs.allowlist.outputs.confirm_sha }}
         run: node scripts/ci/hand-off.mjs "$ISSUE" "$PR"
 
   # The fix fell behind `testing` and conflicts. The hand-off told the contributor so.
@@ -610,8 +660,8 @@ jobs:
   # hand-off job holds the App key and must never be allowed to start a workflow, and
   # this job can start one but holds no secret.
   bring-up-to-date:
-    needs: [agent, handoff]
-    if: needs.handoff.outputs.conflict == 'true'
+    needs: [allowlist, handoff]
+    if: ${{ !cancelled() && needs.handoff.outputs.conflict == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       actions: write
@@ -619,5 +669,5 @@ jobs:
     steps:
       - env:
           GH_TOKEN: ${{ github.token }}
-          PR: ${{ needs.agent.outputs.pr }}
+          PR: ${{ needs.allowlist.outputs.pr }}
         run: gh workflow run pipeline-keep-current.yml --repo "$GITHUB_REPOSITORY" --ref testing -f pr_number="$PR"
