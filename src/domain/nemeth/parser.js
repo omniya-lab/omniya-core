@@ -359,9 +359,33 @@ function parseFenced(state, level, marks) {
 function parseFunctionCall(state, level, marks) {
   const start = state.index;
   const name = advance(state);
+  // 18.4.1 second sentence: scripts on the name come BEFORE the space, and the
+  // space follows the last of them. The scripts belong to the name alone, so
+  // they are parsed here, ahead of the argument, rather than by `parsePostfix`,
+  // which would hang them on the whole application. `levels.js` has already put
+  // the argument back at the name's own level (14.8.4).
+  let head = Operator(name.value, { src: spanFrom(state, start), marks: {} });
+  let filled = '';
+  for (let slot = scriptSlot(state, level); slot; slot = scriptSlot(state, level)) {
+    const script = parsePostfix(state, level + slot);
+    if (filled === slot || (filled !== '' && !(filled === '_' && slot === '^'))) {
+      throw unsupported(state, `a "${slot}" script on a function name already carrying "${filled}"`);
+    }
+    const src = spanFrom(state, start);
+    head =
+      filled === '_'
+        ? SubSuperscript(head.base, head.index, script, { src })
+        : attachScript(head, slot, script, src);
+    filled += slot;
+  }
   expect(state, 'blank', `BANA 18.4.1 leaves a space after the function name "${name.cells}", and none is here`);
   const argument = parsePostfix(state, level);
-  return FunctionCall(name.value, argument, { src: spanFrom(state, start), marks });
+  const src = spanFrom(state, start);
+  // Unscripted, the application keeps its node. A scripted name has no field in
+  // `FunctionCall` for the script, and `\\cos^{2}x` is exactly the name with its
+  // script followed by the argument, so it is a sequence of the two.
+  if (filled === '') return FunctionCall(name.value, argument, { src, marks });
+  return Sequence([head, argument], { src, marks });
 }
 
 function parsePrimary(state, level) {

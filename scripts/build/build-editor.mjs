@@ -1,5 +1,6 @@
 import { build } from 'esbuild';
 import { buildSreMathmaps, SRE_MATHMAPS_DEST, SRE_MATHMAPS_SOURCE } from './build-sre-mathmaps.mjs';
+import { patchMathmapsDir } from './speech-maps.mjs';
 
 // The editor is bundled because the page's script policy is `script-src 'self'`
 // (no inline import map) and ProseMirror imports its parts by package name.
@@ -14,5 +15,7 @@ await build({
   format: 'esm',
 });
 
-// Same pre* hooks: the speech rules MathJax loads (see build-sre-mathmaps.mjs).
+// Same pre* hooks: the speech rules MathJax loads (see build-sre-mathmaps.mjs), then
+// the wording from src/renderer/speech-rules.js applied on top of that copy.
 buildSreMathmaps(SRE_MATHMAPS_SOURCE, SRE_MATHMAPS_DEST);
+await patchMathmapsDir(SRE_MATHMAPS_DEST);

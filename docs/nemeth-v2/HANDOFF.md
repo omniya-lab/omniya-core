@@ -53,7 +53,7 @@ utility gate exists so that cannot recur, and its core set must stay 100%.
 
 ## Deferred deliberately (not missed)
 
-- **Rule 18.4.1's second sentence** — `cos²x`, `log₂x`: a function name carrying a script.
+- ~~Rule 18.4.1 second sentence~~ — done (issue #71): a function name carrying a superscript or subscript written with a level indicator (`cos²x`). A subscript with NO indicator (`log₂x`, `⠇⠕⠛⠆⠀⠭`) is still deferred.
 - **Long-tail symbols**: `∫`, `∞`, prime `′`, `|x|`, and θ (whose cell `⠹` *is* the opening fraction
   indicator, so it needs disambiguation, not just a row).
 - **Nested radicals** (Rule 16.3) and hypercomplex fractions (13.6).

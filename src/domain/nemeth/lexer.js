@@ -245,16 +245,28 @@ function withNumeralAlternative(match, cells, index) {
  * is not a function application at all. `AataExpression_281` is that case
  * exactly, and reading it as `\ln` would be a wrong answer, not a refusal.
  *
- * 18.4.1's second sentence -- if the name carries a superscript, subscript or
- * modifier, the space follows THAT instead -- is out of scope, and the fallback
- * is what keeps that honest: `⠉⠕⠎⠘⠆⠀⠭` (cos squared x,
- * `mathcat-rules:nested_super_space_79_d_3`) and `⠇⠕⠛⠆⠀⠭` (log base 2 of x,
- * `log_77_4_8`) read as letters and refuse further down, which is what they did
- * before Rule 18 shipped. Skipping a script run here would mean walking a
- * grammar the lexer does not have.
+ * 18.4.1's second sentence -- if the name carries a superscript or subscript
+ * the space follows THAT instead (Example 18-8, `cos~2 x`; issue #71) -- is read
+ * for scripts introduced by an explicit level indicator, `⠘` or `⠰`. The lexer
+ * has no script grammar, so it does not walk one: the script is taken to run to
+ * the next space, which is where 14.8.4 puts the end of a script on a function
+ * name ("the space which follows such a superscript or subscript reinstates the
+ * level in effect", Nemeth_2022.txt lines 6793-6795). A script with a space
+ * inside it is not something the Code writes on a function name, so a name
+ * whose script is never closed by a space stays letters, as it always did.
+ *
+ * Still out of scope: a subscript with NO indicator, `⠇⠕⠛⠆⠀⠭` (log base 2 of x,
+ * `log_77_4_8`), which reads as letters and refuses further down.
  */
+const FUNCTION_SCRIPT_INDICATORS = new Set(['⠘', '⠰']);
+
 function spaceFollows(cells, index, len) {
-  return cells[index + len] === BLANK;
+  const after = index + len;
+  if (cells[after] === BLANK) return true;
+  if (!FUNCTION_SCRIPT_INDICATORS.has(cells[after])) return false;
+  let end = after;
+  while (end < cells.length && cells[end] !== BLANK) end += 1;
+  return end < cells.length && end > after + 1;
 }
 
 /**

@@ -14,8 +14,8 @@ maximize.
 
 | Outcome | Count | % of 613 |
 |---|---:|---:|
-| PASS | 219 | 35.7% |
-| REFUSE | 342 | 55.8% |
+| PASS | 222 | 36.2% |
+| REFUSE | 339 | 55.3% |
 | DISAGREE | 52 | 8.5% |
 | ERROR | 0 | 0.0% |
 | **Total** | **613** | **100.0%** |
@@ -24,7 +24,7 @@ maximize.
 
 | Source | PASS | REFUSE | DISAGREE | ERROR | Total |
 |---|---:|---:|---:|---:|---:|
-| mathcat-rules | 40 | 202 | 31 | 0 | 273 |
+| mathcat-rules | 43 | 199 | 31 | 0 | 273 |
 | sre-aata | 179 | 140 | 21 | 0 | 340 |
 
 ## REFUSE by cause
@@ -54,16 +54,15 @@ position, not a category; the offending codepoint is kept since it is).
 | 5 | a typeform indicator governs a fracClose; BANA Rule 7.2.1 requires an alphabetic indicator for a letter and 7.2.2 a numeric indicator for a numeral | `mathcat-rules:num_indicator_9_d_3` |
 | 5 | an alphabetic or capitalization indicator governs a digit, not the letter BANA Rules 5.1.1 and 6.2.3 require | `mathcat-rules:ms_38_4_8` |
 | 4 | a typeform indicator governs a op; BANA Rule 7.2.1 requires an alphabetic indicator for a letter and 7.2.2 a numeric indicator for a numeral | `mathcat-rules:tilde_137_2` |
-| 4 | expected the start of a term at level "^" | `mathcat-rules:nested_super_space_79_d_3` |
 | 4 | indicator "," cannot follow the indicators before it in Appendix C's order (typeform, alphabet, capitalization) | `mathcat-rules:cap_roman_numeral_18_a_3` |
 | 3 | a "_" script between two baseline indicators is a left script | `mathcat-rules:left_sub_14_104` |
 | 3 | a numeral at the start of the input or after a space needs the numeric indicator BANA Rule 3.3.1 requires, so these cells are not the number they resemble | `mathcat-rules:test_9_b_1` |
 | 3 | a typeform indicator governs a letter; BANA Rule 7.2.1 requires an alphabetic indicator for a letter and 7.2.2 a numeric indicator for a numeral | `mathcat-rules:dash_42_6` |
 | 3 | an alphabetic or capitalization indicator governs a radIndex, not the letter BANA Rules 5.1.1 and 6.2.3 require -- and the table leads with a different reading of these cells, the decimal of BANA 3.2.3, for which this pipeline has no grammar beside a radIndex either | `mathcat-rules:nested_root_105_2` |
 | 3 | an alphabetic or capitalization indicator governs a radOpen, not the letter BANA Rules 5.1.1 and 6.2.3 require -- and the table leads with a different reading of these cells, the decimal of BANA 3.2.3, for which this pipeline has no grammar beside a radOpen either | `mathcat-rules:nested_sqrt_105_1` |
+| 3 | expected the start of a term at level "^" | `mathcat-rules:table_entry_after_sup_79_c_4` |
 | 3 | no Nemeth symbol starts at cell N (U+282E "⠮") | `mathcat-rules:in_scripts_comparison_151_17` |
 | 2 | a "_" script on a base already carrying "_" needs a baseline indicator before it | `mathcat-rules:sub_ind_mmultiscripts_80_b_3` |
-| 2 | a "^" script on a base already carrying "^" needs a baseline indicator before it | `mathcat-rules:nested_sup_sup_space_79_d_9` |
 | 2 | a typeform indicator governs a digit; BANA Rule 7.2.1 requires an alphabetic indicator for a letter and 7.2.2 a numeric indicator for a numeral | `mathcat-rules:punct_37_16_1` |
 | 2 | an alphabetic or capitalization indicator governs a baseline, not the letter BANA Rules 5.1.1 and 6.2.3 require | `sre-aata:AataExpression_334` |
 | 2 | an alphabetic or capitalization indicator governs a fracOpen, not the letter BANA Rules 5.1.1 and 6.2.3 require | `mathcat-rules:mixed_frac_63_a_1` |

@@ -246,3 +246,21 @@ test('the preview adds no tab stop: Tab from the field reaches Insert', { timeou
   await page.keyboard.press('Shift+Tab');
   await page.waitForFunction(() => document.activeElement?.id === 'composer-source');
 });
+
+// Issue #71. The words come from patched speech rules the app loads at start
+// (src/renderer/speech-rules.js), so this is the check that the app really uses
+// them and not only the engine in a unit test.
+for (const [source, reads] of [
+  ['\\cos^{2}x', 'cosine squared of x'],
+  ['\\tan^{3}3', 'tangent cubed of 3'],
+  ['\\cos^{5}x', 'cosine to the fifth of x'],
+  ['\\sin^{n}x', 'sine to the enth of x']
+]) {
+  test(`a function with a power is read "${reads}"`, { timeout: 60_000 }, async (t) => {
+    const { page } = await start(t);
+    await focusDocument(page);
+    await openEquationDock(page, 'latex');
+    await field(page).fill(source);
+    await waitForPreview(page, `Reads as: ${reads}`);
+  });
+}

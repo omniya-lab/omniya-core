@@ -184,6 +184,12 @@ export function resolveLevels(tokens, context = {}) {
   let level = '';
   let afterBaseline = false;
   let index = 0;
+  // Rule 14.8.4 (Nemeth_2022.txt lines 6793-6795): when a function name carries
+  // a script, "the space which follows such a superscript or subscript
+  // reinstates the level in effect" -- the level the NAME was written at, not
+  // the script's. `scriptedName` holds that level from the moment a level
+  // indicator directly follows a function name until the first space after it.
+  let scriptedName = null;
 
   while (index < tokens.length) {
     const token = tokens[index];
@@ -231,8 +237,21 @@ export function resolveLevels(tokens, context = {}) {
           detail: `level indicator run "${read.path}" governs nothing -- no script follows it`
         });
       }
+      const previous = resolved.at(-1);
+      if (previous && previous.kind === 'function' && previous.level === level) scriptedName = level;
       level = read.path;
       index = read.index;
+      continue;
+    }
+
+    if (token.kind === 'blank' && scriptedName !== null) {
+      // The space itself already sits at the name's level: left at the script's,
+      // the parser would read it as one more script of the name.
+      level = scriptedName;
+      resolved.push(Object.freeze({ ...token, level, afterBaseline }));
+      afterBaseline = false;
+      scriptedName = null;
+      index += 1;
       continue;
     }
 

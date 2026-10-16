@@ -595,13 +595,13 @@ const ERROR_ALLOWLIST = {};
 // Sourced from the coverage run at the time this gate was written -- see
 // docs/nemeth-v2/coverage.md. This is a floor, not a target: later tasks
 // raise it as the parser's scope grows. It must never silently drop.
-const PASS_BASELINE = 219;
+const PASS_BASELINE = 222;
 
 // The id SET this gate was written against, not just its size. PASS_BASELINE
 // alone is an aggregate floor: N cases regressing to REFUSE while N different
 // cases start passing in the same commit leaves PASS_BASELINE, DISAGREE and
 // ERROR all unchanged, so that swap is fully green under the count alone. This
-// pins which 219 cases pass, so a swap is caught even though the total is not.
+// pins which 222 cases pass, so a swap is caught even though the total is not.
 // Sourced from the same coverage run as PASS_BASELINE -- see docs/nemeth-v2/coverage.md.
 const PASS_IDS = new Set([
   "mathcat-rules:baseline_80_a_1",
@@ -623,8 +623,11 @@ const PASS_IDS = new Set([
   "mathcat-rules:nested_sub_sup_74_c_5",
   "mathcat-rules:nested_sup_74_b_1",
   "mathcat-rules:nested_sup_74_b_4",
+  "mathcat-rules:nested_sup_sup_space_79_d_9",
   "mathcat-rules:nested_super_79_a_2",
   "mathcat-rules:nested_super_79_a_3",
+  "mathcat-rules:nested_super_space_79_d_3",
+  "mathcat-rules:nested_super_space_79_d_7",
   "mathcat-rules:no_multipurpose_lesson_5_2_6",
   "mathcat-rules:no_num_ind_11_e_3",
   "mathcat-rules:non_hyper_complex_frac_67_1",
