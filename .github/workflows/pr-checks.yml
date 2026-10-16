@@ -1,4 +1,5 @@
 name: pr-checks
+# lab hostile
 
 # The gate on every pull request into `testing`.
 #

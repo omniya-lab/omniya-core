@@ -1,2 +1,2 @@
-// Lab fixture: a harmless app file.
+// Lab fixture.
 export const labZoneFixture = true;
