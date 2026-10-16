@@ -37,6 +37,7 @@
   "baseline": {
     ".github/workflows/pipeline-agent.yml": 14,
     ".github/workflows/pipeline-close.yml": 2,
+    ".github/workflows/lab-reply.yml": 1,
     ".github/workflows/pipeline-fix.yml": 18,
     ".github/workflows/pipeline-followup.yml": 41,
     ".github/workflows/pipeline-keep-current.yml": 13,
