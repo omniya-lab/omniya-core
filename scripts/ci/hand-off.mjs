@@ -109,7 +109,13 @@ export function ensureLabel(name, repo, description, gh = realGh) {
   gh(['label', 'create', name, '--repo', repo, '--description', description, '--force']);
 }
 
-export function handOff({ issue, pr, repo, reviewer, mergeToken, expectedSha }, gh = realGh) {
+/**
+ * `carry` is set only by `carry-over.mjs`, for an approval that was given for an older commit of the
+ * same fix: `{from, stillValid, alreadyTold}`. Then every rule runs as always, but a fix that is not
+ * ready to merge changes nothing and says nothing (the contributor was not asking), and a merge says
+ * `carried` once instead of `sent`.
+ */
+export function handOff({ issue, pr, repo, reviewer, mergeToken, expectedSha, carry = null }, gh = realGh) {
   const issueNumber = requireNumber(issue, 'issue number');
   const prNumber = requireNumber(pr, 'pull request number');
 
@@ -145,6 +151,12 @@ export function handOff({ issue, pr, repo, reviewer, mergeToken, expectedSha }, 
   const fixBranch = last.isCrossRepository === false && last.baseRefName === 'testing' && last.state === 'OPEN' && /^claude\/fix-/.test(String(last.headRefName ?? ''));
   const decision = decide({ files, filesComplete, fixBranch, mergeable: last.mergeable, body: last.body, missing: notGreen(checkRuns), codeRules: loadCodeRules() });
   if (moved) decision.reason = 'moved';
+
+  // A carried approval acts only when the fix would merge now. Waiting for the checks, a conflict, a
+  // fix a person must read: nothing is written, and the next run looks again.
+  if (carry && decision.action !== 'merge') {
+    return { sent: false, merge: false, sha, missing: decision.missing ?? [], reason: decision.reason ?? 'pending' };
+  }
 
   if (decision.action === 'not-green') {
     const missing = decision.missing;
@@ -204,15 +216,26 @@ export function handOff({ issue, pr, repo, reviewer, mergeToken, expectedSha }, 
   }
 
   if (!mergeToken) throw new Error('MERGE_TOKEN is not set. Refusing to set contributor-tested without a way to merge.');
+  // The last look, just before the lock is set: the contributor must not have written since.
+  if (carry && !carry.stillValid()) return { sent: false, merge: false, sha, missing: [], reason: 'approval-changed' };
   // The lock. Posted with the App token (a branch workflow cannot post as the App), before auto-merge is asked for.
   gh([
     'api', `repos/${repo}/statuses/${sha}`,
     '-f', 'state=success', '-f', 'context=contributor-tested', '-f', 'description=The contributor tested this build'
   ], { token: mergeToken });
   gh(['pr', 'merge', prNumber, '--repo', repo, '--auto', '--squash', '--match-head-commit', sha], { token: mergeToken });
+  const green = `${REQUIRED_CHECKS.join(', ')} are green on that commit.`;
+  if (carry) {
+    gh([
+      'pr', 'comment', prNumber, '--repo', repo, '--body',
+      `The contributor tested an earlier commit of this fix and said it works. The fix itself has not changed, only the branch was brought up to date with testing.\n\nApproval carried from: ${carry.from}\n\nCommit tested: ${sha}\n\n${green} Auto-merge is on for that commit only. Merging closes issue #${issueNumber}.`
+    ]);
+    if (!carry.alreadyTold) postReply({ issue: issueNumber, state: 'carried', repo }, gh);
+    return { sent: true, merge: true, sha, missing: [], carried: true };
+  }
   gh([
     'pr', 'comment', prNumber, '--repo', repo, '--body',
-    `The contributor installed the build and says it works.\n\nCommit tested: ${sha}\n\n${REQUIRED_CHECKS.join(', ')} are green on that commit. Auto-merge is on for that commit only. If the branch changes, it will not merge on this approval. Merging closes issue #${issueNumber}.`
+    `The contributor installed the build and says it works.\n\nCommit tested: ${sha}\n\n${green} Auto-merge is on for that commit only. If the branch changes, it will not merge on this approval. Merging closes issue #${issueNumber}.`
   ]);
   postReply({ issue: issueNumber, state: 'sent', repo }, gh);
   return { sent: true, merge: true, sha, missing: [] };
