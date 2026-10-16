@@ -131,3 +131,47 @@ test('tells a contributor whose last word was the maintainer reply from before t
   assert.equal(decide({ pr: stuck, comments: [legacyWaiting], runs: { ...green, 'pr-build': '' } }).say, null);
   assert.equal(decide({ pr: stuck, comments: [{ ...legacyWaiting, body: legacyWaiting.body + '\nExtra.' }], runs: green }).say, null);
 });
+
+// A fix the hand-off sent to the owner only because of where its files were. The rules changed (or a person
+// moved the files), so the same hand-off would now let it through. The contributor still waits on the sentence.
+const sentAutomation = { user: bot, body: renderReply('sent-automation').trim() };
+const sentOwner = { user: bot, body: renderReply('sent-owner').trim() };
+
+test('a hand-off wait is lifted only when the hand-off would no longer protect the fix', () => {
+  assert.equal(decide({ pr: stuck, comments: [gaveBuild, sentAutomation], runs: green, stillProtected: false }).say, 'revised');
+  assert.equal(decide({ pr: stuck, comments: [sentOwner], runs: green, stillProtected: false }).say, 'ready');
+  assert.equal(decide({ pr: stuck, comments: [gaveBuild, sentAutomation], runs: green, stillProtected: true }).say, null);
+  // Not told: the old call shape, where nothing says the rules changed, keeps the wait.
+  assert.equal(decide({ pr: stuck, comments: [gaveBuild, sentAutomation], runs: green }).say, null);
+  // `stillProtected: false` does not make any other reply a wait.
+  assert.equal(decide({ pr: stuck, comments: [gaveBuild], runs: green, stillProtected: false }).say, null);
+  assert.equal(decide({ pr: stuck, comments: [gaveBuild, sentAutomation], runs: { ...green, 'pr-build': '' }, stillProtected: false }).say, null);
+});
+
+function fakeHandOffGh({ files, comments = [gaveBuild, sentAutomation], changedFiles = files.length, mergeable = 'MERGEABLE' }) {
+  const { run: base, calls } = fakeGh({ comments });
+  const run = (args) => {
+    calls.push(args);
+    if (args[0] === 'pr' && args[1] === 'view') return JSON.stringify({ mergeable, body: 'x\n\nFixes #73\n', changedFiles });
+    if (args[0] === 'api' && args[1].endsWith('/files')) return files.map((f) => JSON.stringify({ status: 'modified', additions: 5, deletions: 0, ...f })).join('\n');
+    return base(args);
+  };
+  return { run, calls };
+}
+
+test('tells the contributor, and takes the label off, when only automatic files remain', () => {
+  const { run, calls } = fakeHandOffGh({ files: [{ filename: 'src/domain/nemeth/parser.js' }, { filename: 'scripts/build/build-sre-mathmaps.mjs' }, { filename: '.gitignore' }, { filename: 'test/unit/a.test.js' }] });
+  const out = tellRescued({ branch: 'claude/fix-73-enth-speech', repo: 'a/b' }, run);
+  assert.equal(out.said, 'revised');
+  assert.ok(calls.some((c) => c[0] === 'issue' && c.includes('--remove-label') && c.includes('needs-owner')));
+});
+
+test('stays silent when a file is still outside the automatic places, or the list is not the whole change', () => {
+  const still = fakeHandOffGh({ files: [{ filename: 'src/a.js' }, { filename: 'scripts/build-sre-mathmaps.mjs' }] });
+  assert.equal(tellRescued({ branch: 'claude/fix-73-enth-speech', repo: 'a/b' }, still.run).said, null);
+  const part = fakeHandOffGh({ files: [{ filename: 'src/a.js' }], changedFiles: 9 });
+  assert.equal(tellRescued({ branch: 'claude/fix-73-enth-speech', repo: 'a/b' }, part.run).said, null);
+  const workflow = fakeHandOffGh({ files: [{ filename: '.github/workflows/x.yml' }] });
+  assert.equal(tellRescued({ branch: 'claude/fix-73-enth-speech', repo: 'a/b' }, workflow.run).said, null);
+  assert.equal(still.calls.filter((c) => c.includes('-f')).length, 0, 'nothing is posted');
+});
