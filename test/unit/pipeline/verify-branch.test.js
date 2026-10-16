@@ -190,3 +190,30 @@ test('no checks and not behind testing is still a fault', async () => {
   const f = flakyGh({ started: false, behind: 0 });
   await assert.rejects(verifyBranch(f, { repo: REPO, branch: BRANCH, pr: 26, pollMs: 10 }), /did not start/);
 });
+
+test('a cancelled run on a head that has moved is not an answer: it looks at the new head', async () => {
+  const base = fakeGh();
+  const heads = ['old1', 'new1', 'new1', 'new1'];
+  const gh = (args) => {
+    if (args[0] === 'api') return `${heads.length > 1 ? heads.shift() : heads[0]}\n`;
+    if (args[0] === 'run' && args[1] === 'list') {
+      const at = new Date(1_000_000).toISOString();
+      const workflow = args[args.indexOf('--workflow') + 1];
+      const id = workflow === 'pr-checks.yml' ? 501 : 502;
+      return JSON.stringify([
+        { databaseId: id, headSha: 'old1', createdAt: at, status: 'completed', conclusion: 'cancelled' },
+        { databaseId: id + 10, headSha: 'new1', createdAt: at, status: 'completed', conclusion: 'success' }
+      ]);
+    }
+    return base.gh(args);
+  };
+  const result = await verifyBranch({ ...base, gh }, { repo: REPO, branch: BRANCH, pr: 26, pollMs: 10 });
+  assert.equal(result.green, true);
+  assert.equal(result.sha, 'new1');
+});
+
+test('a cancelled run on a head that has NOT moved is still red', async () => {
+  const f = fakeGh({ conclusions: { 'pr-checks.yml': 'cancelled' } });
+  const result = await verifyBranch(f, { repo: REPO, branch: BRANCH, pr: 26, pollMs: 10 });
+  assert.equal(result.green, false);
+});
