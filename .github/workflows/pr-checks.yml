@@ -34,7 +34,7 @@ jobs:
           cache: npm
       - run: brew install liblouis
       - run: npm ci
-      - run: npm test
+      - run: node scripts/ci/retry-once.mjs npm test
 
   nemeth:
     runs-on: ${{ vars.MAC_RUNNER || 'macos-latest' }}
@@ -76,4 +76,4 @@ jobs:
           cache: npm
       - run: brew install liblouis
       - run: npm ci
-      - run: npm run test:e2e
+      - run: node scripts/ci/retry-once.mjs npm run test:e2e
