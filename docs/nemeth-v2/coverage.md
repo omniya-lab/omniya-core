@@ -36,7 +36,7 @@ position, not a category; the offending codepoint is kept since it is).
 
 | Count | Cause | Representative case |
 |---:|---|---|
-| 59 | an alphabetic or capitalization indicator governs a blank, not the letter BANA Rules 5.1.1 and 6.2.3 require -- and the table leads with a different reading of these cells, the comma of BANA 3.2.2, for which this pipeline has no grammar beside a blank either | `mathcat-rules:colon_40_2` |
+| 60 | an alphabetic or capitalization indicator governs a blank, not the letter BANA Rules 5.1.1 and 6.2.3 require -- and the table leads with a different reading of these cells, the comma of BANA 3.2.2, for which this pipeline has no grammar beside a blank either | `mathcat-rules:colon_40_2` |
 | 31 | no Nemeth symbol starts at cell N (U+282B "⠫") | `mathcat-rules:arrow_96_1` |
 | 29 | expected the start of a term at level "" | `mathcat-rules:brace_above_121_1` |
 | 20 | no Nemeth symbol starts at cell N (U+2804 "⠄") | `mathcat-rules:ellipsis_43_b_3` |
@@ -73,7 +73,6 @@ position, not a category; the offending codepoint is kept since it is).
 | 1 | a subscript indicator stands before a first-order numeric subscript that BANA Rule 14.6 writes without one, so this base is not the single letter it looks like | `mathcat-rules:word_77_4_12` |
 | 1 | an alphabetic or capitalization indicator governs a fracClose, not the letter BANA Rules 5.1.1 and 6.2.3 require -- and the table leads with a different reading of these cells, the decimal of BANA 3.2.3, for which this pipeline has no grammar beside a fracClose either | `mathcat-rules:num_indicator_9_d_2` |
 | 1 | an alphabetic or capitalization indicator governs a fracOpen, not the letter BANA Rules 5.1.1 and 6.2.3 require -- and the table leads with a different reading of these cells, the comma of BANA 3.2.2, for which this pipeline has no grammar beside a fracOpen either | `mathcat-rules:hyper_complex_frac_68_a_1` |
-| 1 | an alphabetic or capitalization indicator governs a groupOpen, not the letter BANA Rules 5.1.1 and 6.2.3 require -- and the table leads with a different reading of these cells, the decimal of BANA 3.2.3, for which this pipeline has no grammar beside a groupOpen either | `sre-aata:AataExpression_304` |
 | 1 | an alphabetic or capitalization indicator governs a radIndex, not the letter BANA Rules 5.1.1 and 6.2.3 require | `mathcat-rules:carrot_98_1` |
 | 1 | expected the start of a term at level "_" | `sre-aata:AataExpression_266` |
 | 1 | indicator "@" cannot follow the indicators before it in Appendix C's order (typeform, alphabet, capitalization) | `mathcat-rules:russian_24_a_10` |
