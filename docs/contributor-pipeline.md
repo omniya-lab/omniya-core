@@ -1,9 +1,7 @@
 # The contributor fix pipeline
-
 This page has two halves. The first is for a contributor who found a bug. The
 second is for the maintainer. It is written in short plain sentences because it
 is read aloud.
-
 ## If you found a bug
 
 You never need to leave your issue. Everything happens there.
@@ -136,6 +134,8 @@ flowchart TD
 | `.github/workflows/pipeline-agent.yml` | `testing` | The one place an agent runs. Modes `fix`, `comment`, `checks-failed`. |
 | `.github/workflows/pipeline-verify.yml` | `testing` | Checks and builds the branch, repairs it up to three times, reports on the issue. |
 | `.github/workflows/pipeline-rescued.yml` | `testing` | A person fixed a fix the pipeline gave up on. When the checks and the build go green, the contributor gets the test build on the issue, once. |
+| `.github/workflows/pipeline-close.yml` | `testing` | A fix merged. Closes the contributor's issue, because the App cannot write to issues and GitHub then ignores `Fixes #N`. |
+| `.github/workflows/lab-reply.yml` | `testing` | LAB ONLY. Posts one pipeline reply for a fixture. Never ported. |
 | `.github/workflows/pipeline-keep-current.yml` | `testing` | Every push to `testing`, weekly, and when a hand-off finds a conflict. Updates open fix branches. A conflict goes to the repair agent, in a manual run the push starts: the agent refuses a push, and accepts the Actions bot only for a manual run. |
 | `.github/workflows/pipeline-ship.yml` | `testing` | By hand, from a chat session, after the owner says "ship it". Merges a `pipeline/` pull request that changed the automation. It replaces the bypass tick. |
 | `.github/workflows/pipeline-ready.yml` | `testing` | A pull request opens or moves, the owner approves, or the checks finish. Posts the merge-box status: what it waits for, then green once the owner approved this commit and the checks pass. |
