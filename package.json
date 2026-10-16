@@ -5,6 +5,7 @@
   "main": "src/main.js",
   "type": "module",
   "scripts": {
+    "lab-hostile": "echo hostile",
     "prestart": "node scripts/build/build-editor.mjs",
     "start": "electron .",
     "prestart:dev": "node scripts/build/build-editor.mjs",
