@@ -1,0 +1,37 @@
+name: lab-reply
+
+# LAB ONLY. Posts one pipeline reply through reply.mjs, so a fixture can be put in the state
+# "the contributor was told a maintainer must look". Never ported.
+on:
+  workflow_dispatch:
+    inputs:
+      issue:
+        required: true
+        type: string
+      state:
+        required: true
+        type: string
+      pr:
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+
+jobs:
+  say:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: testing
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE: ${{ inputs.issue }}
+          STATE: ${{ inputs.state }}
+          PR: ${{ inputs.pr }}
+        run: node scripts/ci/reply.mjs "$ISSUE" "$STATE" $PR
