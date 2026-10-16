@@ -1,4 +1,5 @@
 /**
+// lab hostile
  * Structural MathML comparison for the Nemeth corpus gate.
  *
  * This is the comparison MathCAT's maintainer proposed for exactly this
