@@ -1,20 +1,23 @@
-import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { buildSreMathmaps, SRE_MATHMAPS_SOURCE } from './build-sre-mathmaps.mjs';
 import { patchEnglishMathmap } from '../../src/renderer/speech-rules.js';
 
-const SOURCE = 'node_modules/@mathjax/src/bundle/sre/mathmaps';
-
 /**
- * Copy MathJax's speech rule files to `outDir` with the English ClearSpeak
- * wording from `src/renderer/speech-rules.js` applied. The speech worker loads
- * rule files by URL, so a patched copy is how a rule changes (see that file).
- * Generated, gitignored, rebuilt by `scripts/build/build-editor.mjs`.
+ * Apply the English ClearSpeak wording from `src/renderer/speech-rules.js` to a
+ * copy of MathJax's speech rule files that already sits in `dir` (made by
+ * `build-sre-mathmaps.mjs`, which adds the "enth" rules). The speech worker loads
+ * rule files by URL, so a patched copy is how a rule changes. Generated,
+ * gitignored, rebuilt by `scripts/build/build-editor.mjs`.
  */
-export async function writePatchedMathmaps(outDir, root = process.cwd()) {
-  const from = path.join(root, SOURCE);
-  await rm(outDir, { recursive: true, force: true });
-  await mkdir(path.dirname(outDir), { recursive: true });
-  await cp(from, outDir, { recursive: true });
-  const english = JSON.parse(await readFile(path.join(from, 'en.json'), 'utf8'));
-  await writeFile(path.join(outDir, 'en.json'), JSON.stringify(patchEnglishMathmap(english)));
+export async function patchMathmapsDir(dir) {
+  const file = path.join(dir, 'en.json');
+  const english = JSON.parse(await readFile(file, 'utf8'));
+  await writeFile(file, JSON.stringify(patchEnglishMathmap(english)));
+}
+
+/** A fresh patched copy in `outDir`: the "enth" rules, then the function-power wording. */
+export async function writePatchedMathmaps(outDir) {
+  buildSreMathmaps(SRE_MATHMAPS_SOURCE, outDir);
+  await patchMathmapsDir(outDir);
 }

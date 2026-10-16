@@ -10,7 +10,7 @@
 // squared function. Its wording lives in rule files (mathmaps), which the speech
 // worker loads by URL, so the way to change it is to give the worker a patched
 // copy of the English file. `scripts/build/build-editor.mjs` writes that copy next to
-// the page (see `writePatchedMathmaps`) and `mathjax-config.js` points the loader
+// the page (see `patchMathmapsDir`) and `mathjax-config.js` points the loader
 // at it. Only English ClearSpeak is touched; every other rule is the engine's own.
 //
 // The rules only match a function name with an integer or a plain letter as its

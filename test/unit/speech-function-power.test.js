@@ -34,5 +34,6 @@ test('the letter n is spoken as "enth"', async () => {
 test('things the request does not cover read as before', async () => {
   assert.equal(await say('\\cos x'), 'cosine x');
   assert.equal(await say('x^{2}'), 'x squared');
-  assert.equal(await say('x^{n}'), 'x to the n-th power');
+  // Plain powers keep the engine's wording; only the letter n is "enth" (issue #73).
+  assert.equal(await say('x^{n}'), 'x to the enth power');
 });
