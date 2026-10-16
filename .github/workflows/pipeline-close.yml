@@ -1,0 +1,35 @@
+name: pipeline-close
+
+# A fix merged. Close the issue it was for.
+#
+# GitHub closes from `Fixes #N` only if the merger can write to issues. The
+# pipeline's App cannot, so the contributor's issue stayed open after the merge.
+# This runs from `testing` with the built-in token. It checks out `testing`, never
+# the fix, and the pull request's fields reach the script through `env` only.
+on:
+  pull_request_target:
+    types: [closed]
+    branches: [testing]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  close:
+    if: >-
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      startsWith(github.event.pull_request.head.ref, 'claude/fix-')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          MERGED: ${{ github.event.pull_request.merged }}
+          BASE: ${{ github.event.pull_request.base.ref }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          CROSS: ${{ github.event.pull_request.head.repo.full_name != github.repository }}
+          BODY: ${{ github.event.pull_request.body }}
+        run: node scripts/ci/close-fixed.mjs
