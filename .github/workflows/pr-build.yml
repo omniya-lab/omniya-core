@@ -42,7 +42,7 @@ jobs:
           cache: npm
       - run: brew install liblouis
       - run: npm ci
-      - run: npm run dist:mac
+      - run: node scripts/ci/retry-once.mjs npm run dist:mac
       - name: Publish the mac zip to this pull request's prerelease
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -78,7 +78,7 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci
-      - run: npm run dist:win
+      - run: node scripts/ci/retry-once.mjs npm run dist:win
       - name: Publish the Windows installer to this pull request's prerelease
         shell: pwsh
         env:
