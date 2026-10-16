@@ -1,5 +1,4 @@
 # The contributor fix pipeline
-
 This page has two halves. The first is for a contributor who found a bug. The
 second is for the maintainer. It is written in short plain sentences because it
 is read aloud.
