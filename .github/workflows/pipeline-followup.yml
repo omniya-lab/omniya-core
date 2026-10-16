@@ -128,6 +128,8 @@ jobs:
       allowed: ${{ steps.check.outputs.allowed == 'true' && steps.shape.outputs.mention == 'true' && steps.confirm.outputs.confirm != 'true' && 'true' || 'false' }}
       confirm: ${{ steps.confirm.outputs.confirm == 'true' && 'true' || 'false' }}
       confirm_sha: ${{ steps.confirm.outputs.confirm == 'true' && steps.find.outputs.sha || '' }}
+      # The author said "it works" for a build older than the branch's newest build. See the `reply` job.
+      rebuilt: ${{ steps.confirm.outputs.reason == 'head-rebuilt-after-build-comment' && 'true' || 'false' }}
       access: ${{ steps.access.outputs.access }}
       number: ${{ steps.issue.outputs.number }}
       author: ${{ steps.issue.outputs.author }}
@@ -419,13 +421,20 @@ jobs:
   # The agent answered, refused as design, or is blocked. It wrote words for the
   # contributor and did not post them. Post them, once. A `blocked` or a design
   # refusal also gets its label here, because the agent labels nothing.
+  # `keep-current` brings a fix branch up to date with `testing` without a word, and the branch is
+  # built again. The contributor's "it works" was for the older build, so it merges nothing (the
+  # build they tried must be the commit that merges), and with no reply it looked ignored. Say
+  # once that the build under the same links is newer. That is a `revised` reply, a build comment
+  # written AFTER the build, so their next "it works" is taken. It cannot loop: a bot comment starts
+  # no run, and the newest reply is then newer than the build.
   reply:
     needs: [allowlist, agent]
     if: >-
       ${{ !cancelled() &&
       (needs.agent.outputs.result == 'answered' ||
       needs.agent.outputs.result == 'needs-design' ||
-      needs.agent.outputs.result == 'blocked') }}
+      needs.agent.outputs.result == 'blocked' ||
+      needs.allowlist.outputs.rebuilt == 'true') }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -437,10 +446,16 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           ISSUE: ${{ needs.allowlist.outputs.number }}
           RESULT: ${{ needs.agent.outputs.result }}
+          REBUILT: ${{ needs.allowlist.outputs.rebuilt }}
+          PR: ${{ needs.allowlist.outputs.pr }}
           # Agent text. It reaches the script through `env` only.
           MESSAGE: ${{ needs.agent.outputs.message }}
         run: |
           set -euo pipefail
+          if [ "$REBUILT" = "true" ]; then
+            node scripts/ci/reply.mjs "$ISSUE" revised "$PR"
+            exit 0
+          fi
           case "$RESULT" in
             needs-design) STATE=design ;;
             blocked) STATE=stuck ;;
