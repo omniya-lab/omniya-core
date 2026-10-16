@@ -81,3 +81,14 @@ test('a retry speaks only while the newest thing the contributor was told is the
   assert.equal(stillWaiting({ repo: 'o/r', issue: 1 }, gh([reply('maintainer')])), true);
   assert.equal(stillWaiting({ repo: 'o/r', issue: 1 }, gh([reply('maintainer'), reply('revised')])), false);
 });
+
+test('a retry still speaks when the contributor\'s newest word is the maintainer reply from before the state line existed', async () => {
+  const { newestState } = await import('../../../scripts/ci/heal.mjs');
+  const legacy = {
+    body: '<!-- omniya-pipeline-reply -->\nThe maintainer needs to look at a technical problem with this fix.\nYou do not need to do anything.\nThe maintainer will write here when there is news.\n'
+  };
+  assert.equal(newestState([legacy]), 'maintainer');
+  assert.equal(newestState([legacy, { body: 'a person said hi' }]), 'maintainer');
+  assert.equal(newestState([{ body: legacy.body + 'Also: something else.' }]), '', 'only the exact old words count');
+  assert.equal(newestState([legacy, { body: '<!-- omniya-pipeline-reply -->\n<!-- omniya-pipeline-state ready -->\nA test build is ready.\n' }]), 'ready');
+});

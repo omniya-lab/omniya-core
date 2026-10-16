@@ -35,7 +35,7 @@ import { pathToFileURL } from 'node:url';
 
 import { BRANCH_PREFIX, matchFixPrs } from './find-fix-pr.mjs';
 import { gh, requireNumber } from './gh.mjs';
-import { AUTHOR, PIPELINE_PREFIX, postReply, renderReply } from './reply.mjs';
+import { AUTHOR, PIPELINE_PREFIX, isReplyOfState, postReply } from './reply.mjs';
 
 /** The labels that mean "a person has to look at this fix". */
 export const LOOK_LABELS = ['needs-maintainer', 'needs-owner'];
@@ -65,15 +65,15 @@ export function decide({ pr, comments, runs }) {
   if (!pr.labels.some((label) => LOOK_LABELS.includes(label))) {
     return { say: null, why: 'the pull request is not waiting on a person' };
   }
-  // GitHub trims the trailing newline off a stored comment.
-  const waiting = renderReply('maintainer').trim();
   // Anyone can comment on a public issue and start the text with the marker. Only
   // the Actions bot is the pipeline, so only its comments count.
   const ours = comments.filter(
     (comment) => comment.user?.login === AUTHOR && (comment.body ?? '').startsWith(PIPELINE_PREFIX)
   );
   const newest = ours.at(-1);
-  if (!newest || newest.body.trim() !== waiting) {
+  // GitHub trims the trailing newline off a stored comment. Comments from before the state line
+  // existed are the same words without it, and the contributor is still waiting on them.
+  if (!newest || !isReplyOfState(newest.body, 'maintainer')) {
     return { say: null, why: 'the contributor is not waiting on the maintainer reply' };
   }
   const notGreen = WORKFLOWS.filter((workflow) => runs[workflow] !== 'success');

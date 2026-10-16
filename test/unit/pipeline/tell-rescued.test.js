@@ -114,3 +114,20 @@ test('a person copying the pipeline marker cannot start or block a post', () => 
   // A fake "you got a build" comment does not turn ready into revised.
   assert.equal(decide({ pr: stuck, comments: [{ ...gaveBuild, user: stranger }, waiting], runs: green }).say, 'ready');
 });
+
+test('tells a contributor whose last word was the maintainer reply from before the state line existed', () => {
+  const legacyWaiting = {
+    user: bot,
+    body: '<!-- omniya-pipeline-reply -->\nThe maintainer needs to look at a technical problem with this fix.\nYou do not need to do anything.\nThe maintainer will write here when there is news.'
+  };
+  const out = decide({ pr: stuck, comments: [legacyWaiting], runs: green });
+  assert.equal(out.say, 'ready');
+  const saw = decide({ pr: stuck, comments: [gaveBuild, legacyWaiting], runs: green });
+  assert.equal(saw.say, 'revised');
+  // A person who copies the words is not the pipeline.
+  const copied = { user: { login: 'someone' }, body: legacyWaiting.body };
+  assert.equal(decide({ pr: stuck, comments: [copied], runs: green }).say, null);
+  // Not green yet, or an edited comment: still silent.
+  assert.equal(decide({ pr: stuck, comments: [legacyWaiting], runs: { ...green, 'pr-build': '' } }).say, null);
+  assert.equal(decide({ pr: stuck, comments: [{ ...legacyWaiting, body: legacyWaiting.body + '\nExtra.' }], runs: green }).say, null);
+});

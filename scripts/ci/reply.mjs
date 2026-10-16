@@ -340,6 +340,28 @@ export function renderReply(state, { repo, pr, message } = {}) {
 }
 
 /**
+ * Is this comment body exactly the reply for `state`, in today's wording OR in the wording
+ * from before the hidden state line existed (the same text, with no second line)?
+ *
+ * Comments written on Oct 14 and earlier have no state line, and contributors are still
+ * reading them: "The maintainer needs to look at a technical problem". A check that only knew
+ * today's form read them as "not waiting", and stayed silent when the fix went green. The
+ * old form must match EXACTLY, word for word, so a person's own comment can never pass for it.
+ * Only for states that take no words or links (`maintainer`).
+ *
+ * @param {string|undefined} body
+ * @param {string} state one of STATES
+ * @returns {boolean}
+ */
+export function isReplyOfState(body, state) {
+  const current = renderReply(state).trim();
+  const lines = current.split('\n');
+  const legacy = [lines[0], ...lines.slice(2)].join('\n').trim();
+  const text = String(body ?? '').trim();
+  return text === current || text === legacy;
+}
+
+/**
  * Post the reply, and label the issue if the state calls for it. Exactly one
  * comment per call. `run` is `gh` unless a test hands in a stand-in.
  *

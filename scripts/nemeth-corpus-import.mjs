@@ -9,7 +9,7 @@
 //   - speech-rule-engine's AATA Nemeth test suite (aata.json input + expected)
 //
 // Usage:
-//   node scripts/grading/nemeth-corpus-import.mjs --mathcat <path> --sre <path> [--out <path>]
+//   node scripts/nemeth-corpus-import.mjs --mathcat <path> --sre <path> [--out <path>]
 //
 // <mathcat-path> is a checkout of https://github.com/daisy/MathCAT at commit
 // 2e2c19cf9532af816d488fa00b8e5cb7a71ce679 (must contain
@@ -30,7 +30,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 const MATHCAT_REPO = 'https://github.com/daisy/MathCAT';
 const MATHCAT_COMMIT = '2e2c19cf9532af816d488fa00b8e5cb7a71ce679';
@@ -59,7 +59,7 @@ function parseArgs(argv) {
   }
   if (!args.mathcat || !args.sre) {
     fail(
-      'Usage: node scripts/grading/nemeth-corpus-import.mjs --mathcat <path-to-MathCAT-checkout>' +
+      'Usage: node scripts/nemeth-corpus-import.mjs --mathcat <path-to-MathCAT-checkout>' +
         ' --sre <path-to-speech-rule-engine-checkout> [--out <path>]'
     );
   }
@@ -238,7 +238,7 @@ allCases.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 
 const output = {
   schemaVersion: 1,
-  generatedBy: 'scripts/grading/nemeth-corpus-import.mjs',
+  generatedBy: 'scripts/nemeth-corpus-import.mjs',
   sources: [
     {
       id: 'mathcat-rules',

@@ -31,7 +31,7 @@
 import { pathToFileURL } from 'node:url';
 
 import { gh as realGh, requireNumber } from './gh.mjs';
-import { MARKER } from './reply.mjs';
+import { MARKER, isReplyOfState } from './reply.mjs';
 
 export const FAULT = 'pipeline-fault';
 export const RETRIED = 'pipeline-fault-retried';
@@ -94,8 +94,11 @@ export function legacyFault({ repo, pr }, gh = realGh) {
  */
 export function newestState(comments) {
   const mine = comments.filter((c) => String(c.body ?? '').startsWith(MARKER));
-  const match = /^<!-- omniya-pipeline-state ([a-z-]+) -->$/m.exec(mine.at(-1)?.body ?? '');
-  return match ? match[1] : '';
+  const newest = mine.at(-1)?.body ?? '';
+  const match = /^<!-- omniya-pipeline-state ([a-z-]+) -->$/m.exec(newest);
+  if (match) return match[1];
+  // A comment from before the state line existed: the maintainer reply, word for word.
+  return isReplyOfState(newest, 'maintainer') ? 'maintainer' : '';
 }
 
 /**

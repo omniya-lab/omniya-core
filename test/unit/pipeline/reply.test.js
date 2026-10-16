@@ -4,6 +4,7 @@ import test from 'node:test';
 
 import {
   LABELS,
+  isReplyOfState,
   MARKER,
   MAX_MESSAGE,
   PIPELINE_PREFIX,
@@ -271,4 +272,30 @@ test('behind says why it cannot merge, that it is being fixed, and that the cont
   assert.match(text, /try that one/);
   assert.doesNotMatch(text, /maintainer/, 'no person is needed');
   assert.equal(LABELS.behind, undefined, 'it labels nothing');
+});
+
+// The comment contributors read on Oct 14, from before the hidden state line existed (copied from a real issue).
+const LEGACY_MAINTAINER = [
+  '<!-- omniya-pipeline-reply -->',
+  'The maintainer needs to look at a technical problem with this fix.',
+  'You do not need to do anything.',
+  'The maintainer will write here when there is news.'
+].join('\n');
+
+test('isReplyOfState knows the maintainer reply in today\'s wording and in the wording from before the state line', () => {
+  assert.ok(isReplyOfState(renderReply('maintainer'), 'maintainer'));
+  assert.ok(isReplyOfState(renderReply('maintainer').trim(), 'maintainer'), 'GitHub trims the last newline');
+  assert.ok(isReplyOfState(LEGACY_MAINTAINER, 'maintainer'));
+  assert.ok(isReplyOfState(LEGACY_MAINTAINER + '\n\n', 'maintainer'));
+});
+
+test('isReplyOfState: the old form must match word for word, so no other comment passes for it', () => {
+  assert.ok(!isReplyOfState('', 'maintainer'));
+  assert.ok(!isReplyOfState(undefined, 'maintainer'));
+  assert.ok(!isReplyOfState(LEGACY_MAINTAINER + '\nAnd one more thing.', 'maintainer'));
+  assert.ok(!isReplyOfState(LEGACY_MAINTAINER.replace('technical problem', 'small problem'), 'maintainer'));
+  assert.ok(!isReplyOfState(LEGACY_MAINTAINER.replace('<!-- omniya-pipeline-reply -->\n', ''), 'maintainer'), 'the marker line is part of it');
+  assert.ok(!isReplyOfState(renderReply('started'), 'maintainer'));
+  assert.ok(!isReplyOfState(renderReply('ready', { repo: 'a/b', pr: 7 }), 'maintainer'));
+  assert.ok(!isReplyOfState('Hi, the maintainer needs to look at a technical problem with this fix.', 'maintainer'));
 });

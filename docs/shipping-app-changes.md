@@ -12,7 +12,7 @@ sentence naming the first thing that fails when not:
 - The checks are green on the exact head commit, and the head did not move.
 - Every file is in the AUTOMATIC zone of `scripts/ci/zones.json`: `src/**`, `test/**`, `docs/**`,
   `scripts/build/**` (the scripts that generate app files), `scripts/dev/**` and `.gitignore`. Never
-  `test/corpus/**`, `scripts/grading/**` (the Nemeth gates), `test/helpers/mathml-compare.js` or
+  `test/corpus/**`, `scripts/grading/**` and `scripts/nemeth-*.mjs` (the Nemeth gates), `test/helpers/mathml-compare.js` or
   `test/unit/pipeline/**`, and nothing else: no `package.json`, lockfile, `electron-builder.yml`,
   `scripts/ci/**`, `.github/**`, `.claude/**`, no other dotfile.
   A rename is judged by its old path too. A path with `..`, a backslash, a space, a

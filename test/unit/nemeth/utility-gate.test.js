@@ -4,7 +4,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { OPERATIONS, TIERS, renderReport, runUtility } from '../../../scripts/grading/nemeth-utility.mjs';
+import { OPERATIONS, TIERS, renderReport, runUtility } from '../../../scripts/nemeth-utility.mjs';
 
 // The utility gate. Its question is not "is the parser right about the 613
 // cases MathCAT and SRE wrote" -- `corpus-gate.test.js` answers that -- but
@@ -21,7 +21,7 @@ import { OPERATIONS, TIERS, renderReport, runUtility } from '../../../scripts/gr
 // up the suite -- with one exception, below: a WRONG ANSWER blocks in either
 // tier, because a wrong answer is worse than a missing feature everywhere.
 //
-// `runUtility` comes from `scripts/grading/nemeth-utility.mjs`, the same function
+// `runUtility` comes from `scripts/nemeth-utility.mjs`, the same function
 // that generates docs/nemeth-v2/utility-inventory.md, so this file's
 // assertions and the committed document are provably the same computation
 // rather than two hand-synchronized copies of it.
@@ -125,7 +125,7 @@ test('the gate runs through the public parseNemeth, not through a stage of it', 
   // Grading against `lex` or `parse` directly would let a construct count as
   // working while the LaTeX it emits is unusable -- which is the failure the
   // ERROR bucket exists for on the corpus side.
-  const script = readFileSync(path.join(projectRoot, 'scripts', 'grading', 'nemeth-utility.mjs'), 'utf8');
-  assert.match(script, /import \{ NemethUnsupportedError, parseNemeth \} from '\.\.\/\.\.\/src\/domain\/nemeth\/index\.js'/u);
-  assert.doesNotMatch(script, /from '\.\.\/\.\.\/src\/domain\/nemeth\/(lexer|levels|parser|latex)\.js'/u);
+  const script = readFileSync(path.join(projectRoot, 'scripts', 'nemeth-utility.mjs'), 'utf8');
+  assert.match(script, /import \{ NemethUnsupportedError, parseNemeth \} from '\.\.\/src\/domain\/nemeth\/index\.js'/u);
+  assert.doesNotMatch(script, /from '\.\.\/src\/domain\/nemeth\/(lexer|levels|parser|latex)\.js'/u);
 });
