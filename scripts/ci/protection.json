@@ -4,6 +4,7 @@
   "maxCodeLinesProtectedTest": 500,
   "baseline": {
     ".github/workflows/pipeline-agent.yml": 14,
+    ".github/workflows/pipeline-carry.yml": 15,
     ".github/workflows/pipeline-close.yml": 2,
     ".github/workflows/lab-reply.yml": 1,
     ".github/workflows/pipeline-fix.yml": 18,
@@ -18,6 +19,7 @@
     ".github/workflows/testing-app.yml": 7,
     "scripts/ci/add-contributor.mjs": 2,
     "scripts/ci/agent-digest.mjs": 1,
+    "scripts/ci/carry-over.mjs": 2,
     "scripts/ci/hand-off.mjs": 5,
     "scripts/ci/job-power.mjs": 3,
     "scripts/ci/keep-current.mjs": 2,

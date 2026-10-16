@@ -1,0 +1,80 @@
+name: pipeline-carry
+
+# Carry a contributor's "it works" over a branch update.
+#
+# The hand-off accepts an approval for the exact commit the contributor tested. Then
+# `keep-current` merges `testing` into the fix branch, the head moves, and the approval is for a
+# commit that is no longer the head: the fix never merges and nobody says why.
+#
+# `scripts/ci/carry-over.mjs` decides, with rules that fail closed (see the header of that file),
+# whether the fix is the SAME fix. Only if it is does the hand-off run again for the new head,
+# pinned to that commit, and the contributor is told once. Everything else is unchanged: a fix
+# whose lines changed gets the `revised` notice and a fresh "it works", as before.
+#
+# It runs when the checks of a fix branch finish (the new head is green by then), and every 20
+# minutes as a safety net. It looks at every open fix pull request, so nothing from the event is
+# used except to wake it.
+on:
+  workflow_run:
+    workflows: [pr-checks]
+    types: [completed]
+  schedule:
+    - cron: '*/20 * * * *'
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Only this pull request. Leave empty for all of them.
+        required: false
+        default: ''
+        type: string
+      dry:
+        description: Say what would happen and change nothing.
+        required: false
+        default: false
+        type: boolean
+
+# One run at a time. A run during a run waits for it, then looks at the new state.
+concurrency:
+  group: pipeline-carry
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  carry:
+    # A check run on a fix branch that passed, or a timer, or a person.
+    if: >-
+      ${{ github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       startsWith(github.event.workflow_run.head_branch, 'claude/fix-')) }}
+    runs-on: ubuntu-latest
+    environment: pipeline
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      checks: read
+      pull-requests: write
+      issues: write
+    steps:
+      - id: app
+        uses: actions/create-github-app-token@df432ceedc7162793a195dd1713ff69aefc7379e # v2.0.6
+        with:
+          app-id: ${{ vars.PIPELINE_APP_ID }}
+          private-key: ${{ secrets.PIPELINE_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: read
+          permission-statuses: write
+      # The scripts come from `testing`. The fix branches are fetched as data and only read by git.
+      - uses: actions/checkout@v4
+        with:
+          ref: testing
+          fetch-depth: 0
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          MERGE_TOKEN: ${{ steps.app.outputs.token }}
+          PIPELINE_BOT_LOGINS: github-actions[bot],${{ steps.app.outputs.app-slug }}[bot]
+          ONLY: ${{ inputs.pr_number }}
+          DRY: ${{ inputs.dry }}
+        run: node scripts/ci/carry-over.mjs
