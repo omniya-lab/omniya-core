@@ -76,4 +76,4 @@ jobs:
           cache: npm
       - run: brew install liblouis
       - run: npm ci
-      - run: node scripts/ci/retry-once.mjs npm run test:e2e
+      - run: node scripts/ci/retry-once.mjs --limit-min 18 npm run test:e2e
