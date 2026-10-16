@@ -48,7 +48,7 @@ enforced rule in the repo. It is why the parser emits LaTeX rather than MathML.
 | Worker | Owns (create/edit ONLY these) |
 |---|---|
 | W0 teardown | deletions in §8; `src/renderer/app.js`; `src/domain/replacement-session.js`; `package.json` |
-| W1 corpus | `test/corpus/**`, `scripts/grading/nemeth-corpus-extract.mjs`, `src/domain/nemeth/braille-ascii.js` |
+| W1 corpus | `test/corpus/**`, `scripts/nemeth-corpus-extract.mjs`, `src/domain/nemeth/braille-ascii.js` |
 | W2 symbols | `src/domain/nemeth/symbols.json`, `src/domain/nemeth/symbols.js` |
 | W3 lexer | `src/domain/nemeth/lexer.js`, `levels.js`, `test/unit/nemeth/lexer.test.js`, `levels.test.js` |
 | W4 parser | `src/domain/nemeth/ast.js`, `parser.js`, `test/unit/nemeth/ast.test.js`, `parser.test.js` |

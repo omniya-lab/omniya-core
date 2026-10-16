@@ -11,7 +11,10 @@
   "goalposts": [
     "test/corpus/**",
     "scripts/grading/**",
-    "test/helpers/mathml-compare.js"
+    "test/helpers/mathml-compare.js",
+    "scripts/nemeth-corpus-import.mjs",
+    "scripts/nemeth-coverage.mjs",
+    "scripts/nemeth-utility.mjs"
   ],
   "shipIt": [
     ".github/workflows/**",

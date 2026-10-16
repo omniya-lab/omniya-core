@@ -57,7 +57,7 @@ test('a path that is deep, or has dots, dashes and digits inside a name, is fine
 test('refuses every file outside src, test and docs, whatever else is in the pull request', () => {
   const outside = [
     '.github/workflows/pipeline-agent.yml', '.github/workflows/anything.yml', '.github/CODEOWNERS', '.github/contributors.yml',
-    'package.json', 'package-lock.json', 'electron-builder.yml', 'scripts/ci/hand-off.mjs', 'scripts/grading/nemeth-coverage.mjs', 'test/helpers/mathml-compare.js', 'scripts/mystery.mjs',
+    'package.json', 'package-lock.json', 'electron-builder.yml', 'scripts/ci/hand-off.mjs', 'scripts/nemeth-coverage.mjs', 'test/helpers/mathml-compare.js', 'scripts/mystery.mjs',
     '.claude/skills/pipeline-change/SKILL.md', '.claude/settings.json', 'CLAUDE.md', 'README.md', 'LICENSE', '.npmrc', 'CODEOWNERS'
   ];
   for (const path of outside) {
@@ -75,7 +75,7 @@ test('the scripts that build the app and the one file .gitignore are inside the 
     assert.equal(outsideZone(p), null, p);
   }
   assert.equal(product([file('.gitignore'), file('scripts/build/speech-maps.mjs'), file('src/a.js')]).ship, true);
-  for (const p of ['scripts/grading/nemeth-utility.mjs', 'scripts/build/../ci/x.mjs', 'scripts/builds/x.mjs', 'sub/.gitignore', 'src/.gitignore', '.gitignore/x']) {
+  for (const p of ['scripts/nemeth-utility.mjs', 'scripts/build/../ci/x.mjs', 'scripts/builds/x.mjs', 'sub/.gitignore', 'src/.gitignore', '.gitignore/x']) {
     assert.notEqual(outsideZone(p), null, p);
   }
 });
