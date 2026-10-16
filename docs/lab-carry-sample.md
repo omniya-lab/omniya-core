@@ -18,6 +18,7 @@ Sample line 17.
 Sample line 18.
 Sample line 19.
 Sample line 20.
+FIX a: this line is the fix.
 Sample line 21.
 Sample line 22.
 Sample line 23.
