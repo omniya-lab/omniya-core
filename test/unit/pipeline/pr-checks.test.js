@@ -20,14 +20,14 @@ const RETRY = 'node scripts/ci/retry-once.mjs ';
 const REQUIRED = [
   { job: 'unit', run: 'npm test', retried: true },
   { job: 'nemeth', run: 'node scripts/ci/nemeth-gate.mjs' },
-  { job: 'e2e', run: 'npm run test:e2e', retried: true }
+  { job: 'e2e', run: 'npm run test:e2e', retried: true, limit: '--limit-min 18 ' }
 ];
 
 test('no gate can be skipped', () => {
   // Three separate ways a gate stops being a gate while still showing a green
   // tick. Every one of them has to be closed, because the checks that watch a
   // run's conclusion cannot tell a passing gate from a gate that could not fail.
-  for (const { job, run, retried } of REQUIRED) {
+  for (const { job, run, retried, limit = '' } of REQUIRED) {
     const definition = workflow.jobs?.[job];
     assert.ok(definition, `expected a \`${job}\` job`);
 
@@ -35,7 +35,7 @@ test('no gate can be skipped', () => {
     assert.equal(definition.if, undefined, `the ${job} job must not be behind an \`if\``);
     assert.equal(definition['continue-on-error'], undefined, `the ${job} job must not continue-on-error`);
 
-    const step = (definition.steps ?? []).find((s) => s.run === (retried ? RETRY + run : run));
+    const step = (definition.steps ?? []).find((s) => s.run === (retried ? RETRY + limit + run : run));
     assert.ok(step, `the ${job} job must run \`${run}\` as its own step`);
 
     // 2. The step made advisory.
@@ -105,3 +105,9 @@ test('the gate is started by the pull request itself, and by nothing else', () =
   }
 });
 
+
+test('two tries of the e2e job fit inside its timeout, so a hang is stopped and the second try still runs', () => {
+  const limit = Number(/--limit-min (\d+)/.exec(source)?.[1]);
+  assert.ok(limit > 0, 'the e2e step has a limit for one try');
+  assert.ok(limit * 2 < workflow.jobs.e2e['timeout-minutes'], 'both tries fit before the job is killed');
+});
