@@ -117,14 +117,28 @@ export function runChild(dir, paths) {
   return JSON.parse(out);
 }
 
-/** The paths both versions protect, read as data (never run), so nothing either one protects goes unasked. */
+/**
+ * The protected lists of a tree, read as data (never run). They live in `zones.json`; a tree from before
+ * the map existed kept them in `protection.json`, and the first change that brings the map is compared
+ * to such a tree, so both places are read. Folders (`dir/**`) are not files and are asked about by their
+ * prefix elsewhere.
+ */
+export function listsOf(dir) {
+  const read = (name) => {
+    const file = join(dir, 'scripts/ci', name);
+    return existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : {};
+  };
+  const m = { ...read('protection.json'), ...read('zones.json') };
+  const files = (list) => (list ?? []).filter((p) => !p.endsWith('/**'));
+  return { lock: files(m.lock), shipIt: files(m.shipIt) };
+}
+
+/** The paths both versions protect, so nothing either one protects goes unasked. */
 export function protectedPaths(...dirs) {
   const paths = new Set();
   for (const dir of dirs) {
-    const file = join(dir, 'scripts/ci/protection.json');
-    if (!existsSync(file)) continue;
-    const m = JSON.parse(readFileSync(file, 'utf8'));
-    for (const key of ['lock', 'tick', 'shipIt']) for (const p of m[key] ?? []) paths.add(p);
+    const { lock, shipIt } = listsOf(dir);
+    for (const p of [...lock, ...shipIt]) paths.add(p);
   }
   return [...paths].sort();
 }
@@ -183,7 +197,7 @@ async function main() {
         return '';
       }
     };
-    const lockPaths = JSON.parse(readFileSync(join(base, 'scripts/ci/protection.json'), 'utf8')).lock ?? [];
+    const lockPaths = [...new Set([...listsOf(base).lock, ...listsOf(head).lock])];
     if (lockPaths.every((p) => blob(mergeBase, p) === blob(sha, p) && blob(sha, p) !== '')) {
       out('same', ['no file of the lock differs between where the branch left testing and its head']);
       return;

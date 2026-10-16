@@ -18,6 +18,7 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { matchesLine, SENSITIVE_LINES } from './ship-pipeline-pr.mjs';
+import { filesOf, foldersOf, loadMap, zoneOf } from './zones.mjs';
 
 /** The places the shipper reads line by line, as [directory, file name pattern]. */
 export const AUTOMATION_DIRS = [
@@ -48,22 +49,24 @@ export function measure(text) {
   return { code: code.length, sensitive: code.filter((line) => SENSITIVE_LINES.some(([pattern]) => matchesLine(pattern, line))).length };
 }
 
+/** The sizes and the baseline from `protection.json`, and the lists from the one map, `zones.json`. */
 export function loadManifest(root = '.') {
-  return JSON.parse(readFileSync(join(root, 'scripts/ci/protection.json'), 'utf8'));
+  const sizes = JSON.parse(readFileSync(join(root, 'scripts/ci/protection.json'), 'utf8'));
+  const map = loadMap(join(root, 'scripts/ci/zones.json'));
+  return { ...sizes, lock: filesOf('lock', map), shipIt: filesOf('shipIt', map), shipItPrefixes: foldersOf('shipIt', map) };
 }
 
 /** @returns {'lock'|'ship-it'|'free'} */
-export function tierOf(file, manifest) {
-  if (manifest.lock.includes(file)) return 'lock';
-  if (manifest.shipIt.includes(file) || manifest.shipItPrefixes.some((prefix) => file.startsWith(prefix))) return 'ship-it';
-  return 'free';
+export function tierOf(file) {
+  const { zone } = zoneOf(file);
+  return zone === 'lock' ? 'lock' : zone === 'shipIt' ? 'ship-it' : 'free';
 }
 
 /** One row per automation file, the most sensitive first. */
 export function report(root = '.') {
   const manifest = loadManifest(root);
   return automationFiles(root)
-    .map((file) => ({ file, tier: tierOf(file, manifest), ...measure(readFileSync(join(root, file), 'utf8')) }))
+    .map((file) => ({ file, tier: tierOf(file), ...measure(readFileSync(join(root, file), 'utf8')) }))
     .sort((a, b) => b.sensitive - a.sensitive || a.file.localeCompare(b.file));
 }
 

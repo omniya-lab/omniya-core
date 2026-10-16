@@ -71,12 +71,13 @@
  *   node scripts/ci/ship-pipeline-pr.mjs <pull-request-number> <commit-sha>
  */
 
-import { appendFileSync, readFileSync } from 'node:fs';
+import { appendFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
 import { gh as realGh, requireNumber, setOutputs } from './gh.mjs';
 import { structuralChanges } from './workflow-diff.mjs';
 import { PRODUCT_PREFIX, decideProduct, readModes } from './product-lane.mjs';
+import { filesOf, foldersOf, zoneOf } from './zones.mjs';
 
 export const BRANCH_PREFIX = 'pipeline/';
 
@@ -86,27 +87,23 @@ export const CHECKS_BY_WORKFLOW = {
   '.github/workflows/pr-build.yml': ['pack-mac', 'pack-win']
 };
 
-// The protected files are listed ONCE, in `protection.json`, and this script reads that
-// list. It is read from the checkout of `testing` that this workflow runs from, so a pull
-// request cannot change the list it is judged by. A missing or broken list stops the
-// shipper: it never falls back to an empty one.
-const MANIFEST = JSON.parse(readFileSync(new URL('./protection.json', import.meta.url), 'utf8'));
-for (const key of ['lock', 'shipIt', 'shipItPrefixes']) {
-  if (!Array.isArray(MANIFEST[key])) throw new Error(`protection.json has no list called ${key}`);
-}
+// The protected files are listed ONCE, in `zones.json`, the one map from a path to what it
+// takes to change it, and this script reads that map. It is read from the checkout of `testing`
+// that this workflow runs from, so a pull request cannot change the map it is judged by. A
+// missing or broken map stops the shipper: it never falls back to an empty one.
 
 /**
  * LOCK tier. Changing any of these changes who may merge what, or what is protected.
  * They need the owner's words and a strictness check that finds the change no looser.
  */
-export const LOCK_FILES = MANIFEST.lock;
+export const LOCK_FILES = filesOf('lock');
 
 /**
  * SHIP-IT tier, by file. Each decides what "green" means, who may merge a
  * contributor's fix, or what runs with a token. A bad edit here is not a bad
  * edit to one feature: it loosens the gates for every later change.
  */
-export const SHIP_IT_FILES = MANIFEST.shipIt;
+export const SHIP_IT_FILES = filesOf('shipIt');
 // `package.json`, the lockfile, `.github/CODEOWNERS` and `.github/actions/` are not
 // listed on purpose. They are outside the allow list, so they need the owner's
 // bypass tick: a changed dependency is a supply-chain change, and an action can run anything.
@@ -161,11 +158,6 @@ export const MAX_FILES = 3000;
 /** One page of push history. A branch with more pushes than this is refused. */
 export const MAX_PUSHES = 100;
 
-// A path is compared to the protected lists in one plain form: composed Unicode, lower case.
-// `scripts/ci/Ship-Pipeline-Pr.mjs` is not the file the workflow runs, but it must never be
-// shipped as if it were free on a machine that treats the two names as one.
-const plain = (file) => String(file).normalize('NFKC').toLowerCase();
-
 // A `..` segment would let `docs/../src/main.js` start with an allowed prefix. Git cannot
 // store such a path, but this must not depend on that. A backslash, a control character or a
 // leading slash is not a path this pipeline ever makes, so it is not allowed either.
@@ -175,15 +167,13 @@ export const isAllowed = (file) =>
   !file.startsWith('/') &&
   (ALLOWED_PREFIXES.some((prefix) => file.startsWith(prefix)) || ALLOWED_WORKFLOW.test(file));
 
-export const isLock = (file) => LOCK_FILES.some((protectedFile) => plain(protectedFile) === plain(file));
+export const isLock = (file) => zoneOf(file).zone === 'lock';
 
 // The pipeline-change skill is the session's own rulebook for when it may ship. A change to
 // it is a change to the approval rules themselves, so it needs the owner's word, always.
-export const SHIP_IT_PREFIXES = MANIFEST.shipItPrefixes;
+export const SHIP_IT_PREFIXES = foldersOf('shipIt');
 
-export const isShipIt = (file) =>
-  SHIP_IT_FILES.some((protectedFile) => plain(protectedFile) === plain(file)) ||
-  SHIP_IT_PREFIXES.some((prefix) => plain(file).startsWith(plain(prefix)));
+export const isShipIt = (file) => zoneOf(file).zone === 'shipIt';
 
 /**
  * Does this pattern match this line, as GitHub would read it? A YAML key may be quoted

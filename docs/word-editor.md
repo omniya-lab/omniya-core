@@ -105,7 +105,7 @@ notes; a braille file (BRF) export.
 | Equation in the page | `src/renderer/editor/math-node-view.js` | Draws one equation. Names it for a reader. Hands the keys to the explorer when it is entered. |
 | MathJax drawing | `src/renderer/editor/math-render.js` | Draws MathML. Reads MathJax's speech label. |
 | Word's Backspace | `src/renderer/editor/commands.js` | Select the equation first, then delete it. |
-| Bundle | `scripts/build-editor.mjs` | Builds `editor.bundle.js`. Runs before `npm start`, `npm run test:e2e` and the packaging scripts. |
+| Bundle | `scripts/build/build-editor.mjs` | Builds `editor.bundle.js`. Runs before `npm start`, `npm run test:e2e` and the packaging scripts. |
 | App | `src/renderer/app.js` | Napkin list, saving, the equation field, the explorer, menus. |
 | Saved shape | `src/domain/document.js` | The plain JSON of a document. No ProseMirror import, so the domain stays standalone. |
 | Upgrade | `src/domain/migration.js` | Old item lists become documents. `storage.js` keeps a copy of the old file first. |
@@ -229,8 +229,8 @@ maps the first to the run of parts it covers, and the second to "after the part 
 | What | Command | What it does |
 |---|---|---|
 | Thousands of edits, no browser | `node --test test/unit/equation-regenerate-fuzz.test.js` | Every part of 26 equations, three operations, 60 fragments, and chains of edits. Set `OMNIYA_FUZZ_SEED` and `OMNIYA_FUZZ_CHAINS` for a longer hunt. |
-| Live edits in the real app | `node scripts/fuzz-explorer-edits.mjs [seed] [rounds]` | Reads equations by parts, presses r, a and o, and compares each result with a fresh parse. Also reports any key that did nothing. |
-| A blind judge | `scripts/judge-drive.mjs` | A small driver. Give it to an agent that has read nothing else, and ask it to break the editing. |
+| Live edits in the real app | `node scripts/dev/fuzz-explorer-edits.mjs [seed] [rounds]` | Reads equations by parts, presses r, a and o, and compares each result with a fresh parse. Also reports any key that did nothing. |
+| A blind judge | `scripts/dev/judge-drive.mjs` | A small driver. Give it to an agent that has read nothing else, and ask it to break the editing. |
 
 A new symbol or Nemeth construct needs no new rule here. Add it to the pools in the fuzz
 test, and the check covers it.
