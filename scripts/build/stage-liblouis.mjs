@@ -16,12 +16,12 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const outRoot = path.join(projectRoot, 'vendor', 'liblouis');
 const outBin = path.join(outRoot, 'bin');
 const outTables = path.join(outRoot, 'tables');
 const noticePath = path.join(outRoot, 'NOTICE');
-const windowsUrlFile = path.join(projectRoot, 'scripts', 'liblouis-windows-url.txt');
+const windowsUrlFile = path.join(projectRoot, 'scripts', 'build', 'liblouis-windows-url.txt');
 const FORBIDDEN_PREFIXES = ['/opt/homebrew', '/usr/local'];
 const LICENSE_NAMES = new Set(['COPYING', 'LICENSE', 'NEWS']);
 
