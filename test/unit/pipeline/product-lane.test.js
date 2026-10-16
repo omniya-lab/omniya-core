@@ -57,8 +57,8 @@ test('a path that is deep, or has dots, dashes and digits inside a name, is fine
 test('refuses every file outside src, test and docs, whatever else is in the pull request', () => {
   const outside = [
     '.github/workflows/pipeline-agent.yml', '.github/workflows/anything.yml', '.github/CODEOWNERS', '.github/contributors.yml',
-    'package.json', 'package-lock.json', 'electron-builder.yml', 'scripts/ci/hand-off.mjs', 'scripts/build-editor.mjs',
-    '.claude/skills/pipeline-change/SKILL.md', '.claude/settings.json', 'CLAUDE.md', 'README.md', 'LICENSE', '.gitignore', '.npmrc', 'CODEOWNERS'
+    'package.json', 'package-lock.json', 'electron-builder.yml', 'scripts/ci/hand-off.mjs', 'scripts/nemeth-coverage.mjs', 'test/helpers/mathml-compare.js', 'scripts/mystery.mjs',
+    '.claude/skills/pipeline-change/SKILL.md', '.claude/settings.json', 'CLAUDE.md', 'README.md', 'LICENSE', '.npmrc', 'CODEOWNERS'
   ];
   for (const path of outside) {
     const alone = product([file(path)]);
@@ -70,6 +70,16 @@ test('refuses every file outside src, test and docs, whatever else is in the pul
   }
 });
 
+test('the scripts that build the app and the one file .gitignore are inside the zone, and the grading scripts are not', () => {
+  for (const p of ['scripts/build/build-editor.mjs', 'scripts/build/speech-maps.mjs', 'scripts/build/build-sre-mathmaps.mjs', 'scripts/dev/open-napkin.mjs', '.gitignore']) {
+    assert.equal(outsideZone(p), null, p);
+  }
+  assert.equal(product([file('.gitignore'), file('scripts/build/speech-maps.mjs'), file('src/a.js')]).ship, true);
+  for (const p of ['scripts/nemeth-utility.mjs', 'scripts/build/../ci/x.mjs', 'scripts/builds/x.mjs', 'sub/.gitignore', 'src/.gitignore', '.gitignore/x']) {
+    assert.notEqual(outsideZone(p), null, p);
+  }
+});
+
 test('refuses a path that only contains the word src, test or docs', () => {
   for (const path of ['lib/src-fake/x.js', 'srcx/y.js', 'src-fake/y.js', 'a/src/y.js', 'scripts/src/y.js', 'testing/x.js', 'tests/x.js', 'docs-old/x.md', 'documents/x.md', 'src', 'src/', 'test', 'docs']) {
     assert.equal(product([file(path)]).ship, false, path);
@@ -77,7 +87,7 @@ test('refuses a path that only contains the word src, test or docs', () => {
 });
 
 test('refuses the grading data and the pipeline\'s own tests, in any case', () => {
-  for (const path of ['test/corpus/nemeth-v1.json', 'test/corpus/new/row.json', 'test/Corpus/x.json', 'test/CORPUS/x.json', 'test/corpus', 'test/unit/pipeline/hand-off.test.js', 'test/unit/Pipeline/x.test.js', 'test/unit/PIPELINE/x.js', 'test/unit/pipeline/product-lane.test.js']) {
+  for (const path of ['test/corpus/nemeth-v1.json', 'test/corpus/new/row.json', 'test/Corpus/x.json', 'test/CORPUS/x.json', 'test/unit/pipeline/hand-off.test.js', 'test/unit/Pipeline/x.test.js', 'test/unit/PIPELINE/x.js', 'test/unit/pipeline/product-lane.test.js']) {
     const out = product([file(path)]);
     assert.equal(out.ship, false, path);
     assert.match(out.reason, /does not ship|a word/, path);

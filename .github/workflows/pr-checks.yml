@@ -58,7 +58,7 @@ jobs:
 
   e2e:
     runs-on: ${{ vars.MAC_RUNNER || 'macos-latest' }}
-    # macOS, not Linux: `scripts/stage-liblouis.mjs` supports darwin and win32
+    # macOS, not Linux: `scripts/build/stage-liblouis.mjs` supports darwin and win32
     # only, and the suite drives a real Electron window.
     #
     # A runner has no logged-in display session, which is the case

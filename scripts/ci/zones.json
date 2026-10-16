@@ -1,0 +1,60 @@
+{
+  "note": "THE ONE MAP from a path to what it takes to change it. Read by the contributor hand-off, by the shipper (both lanes) and by the tests. Classified by PATH only, never by what a line says. A path in no zone is OWNER: the default is deny. Where two patterns match, the more specific one wins (more folders, and a file beats a folder); two zones holding the very same pattern is an error the tests catch. Compared in lower case, composed Unicode, so a path that a Mac treats as the same file is the same here. AUTOMATIC: reversible, and never run by a job that holds power. SHIP-IT: runs with power or decides what is trusted, so it needs the owner's 'ship it'. GOALPOSTS: defines what counts as correct, so it is never shipped by a word. LOCK: decides who may merge what, so it needs 'ship it' and the strictness check. The structural test (test/unit/pipeline/zones.test.js) holds the rules that make AUTOMATIC safe.",
+  "automatic": [
+    "src/**",
+    "test/**",
+    "docs/**",
+    "scripts/build/**",
+    "scripts/dev/**",
+    ".gitignore"
+  ],
+  "goalposts": [
+    "test/corpus/**",
+    "scripts/grading/**",
+    "test/helpers/mathml-compare.js",
+    "scripts/nemeth-corpus-import.mjs",
+    "scripts/nemeth-coverage.mjs",
+    "scripts/nemeth-utility.mjs"
+  ],
+  "shipIt": [
+    ".github/workflows/**",
+    ".github/prompts/**",
+    "scripts/ci/**",
+    ".claude/**",
+    "package.json",
+    "package-lock.json",
+    "electron-builder.yml",
+    "test/unit/pipeline/**",
+    ".github/workflows/pr-checks.yml",
+    ".github/workflows/pr-build.yml",
+    ".github/workflows/testing-app.yml",
+    "scripts/ci/gh.mjs",
+    "scripts/ci/hand-off.mjs",
+    "scripts/ci/allowlist.mjs",
+    "test/unit/pipeline/pipeline-secrets.test.js",
+    "test/unit/pipeline/hand-off.test.js",
+    ".github/workflows/pipeline-ready.yml",
+    "scripts/ci/ready-status.mjs",
+    "scripts/ci/green.mjs",
+    "test/unit/pipeline/ready-status.test.js"
+  ],
+  "lock": [
+    ".github/workflows/pipeline-ship.yml",
+    "scripts/ci/ship-pipeline-pr.mjs",
+    "test/unit/pipeline/ship-pipeline-pr.test.js",
+    "scripts/ci/protection.json",
+    "scripts/ci/protection-report.mjs",
+    "test/unit/pipeline/protection-manifest.test.js",
+    "scripts/ci/workflow-diff.mjs",
+    "test/unit/pipeline/workflow-diff.test.js",
+    "scripts/ci/lock-corpus.mjs",
+    "scripts/ci/lock-differential.mjs",
+    "test/unit/pipeline/lock-differential.test.js",
+    "scripts/ci/product-lane.mjs",
+    "test/unit/pipeline/product-lane.test.js",
+    "scripts/ci/zones.json",
+    "scripts/ci/zones.mjs",
+    "test/unit/pipeline/zones.test.js",
+    "scripts/ci/job-power.mjs"
+  ]
+}
