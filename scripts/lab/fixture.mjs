@@ -45,6 +45,19 @@ export async function open(name, files) {
   return { issue: n, branch, pr };
 }
 
+/**
+ * A copy of a real contributor's branch: the commits in a local repository at `ref` are pushed as
+ * `claude/fix-<n>-<name>` with a draft pull request, so the hand-off and the checks see the real change.
+ */
+export async function openFrom(name, repoDir, ref) {
+  const issue = api(CONTRIB, `repos/${repo}/issues`, '-X', 'POST', '-f', `title=Fixture ${name}`, '-f', 'body=Copy of a contributor branch for the hand-off. I tested the build.');
+  const n = issue.number;
+  const branch = `claude/fix-${n}-${name}`;
+  execFileSync('git', ['push', '-q', `https://x-access-token:${BOT}@github.com/${repo}.git`, `${ref}:refs/heads/${branch}`], { cwd: repoDir, encoding: 'utf8' });
+  const pr = gh(BOT, 'pr', 'create', '--repo', repo, '--base', 'testing', '--head', branch, '--draft', '--title', `Fixture ${name}`, '--body', `Copy of a contributor branch.\n\nFixes #${n}`);
+  return { issue: n, branch, pr };
+}
+
 const comments = (n) => api(BOT, `repos/${repo}/issues/${n}/comments?per_page=100`);
 const state = (c) => /omniya-pipeline-state ([a-z-]+)/.exec(c.body)?.[1] ?? '';
 const prOf = (n) => JSON.parse(gh(BOT, 'pr', 'list', '--repo', repo, '--state', 'all', '--search', `Fixes #${n} in:body`, '--json', 'number,state,mergedAt,headRefName,labels'))[0];
@@ -78,6 +91,8 @@ if (process.argv[1]?.endsWith('fixture.mjs')) {
   if (cmd === 'open') {
     const files = Object.fromEntries(rest.map((kv) => { const i = kv.indexOf('='); return [kv.slice(0, i), kv.slice(i + 1)]; }));
     console.log(JSON.stringify(await open(a, files)));
+  } else if (cmd === 'open-from') {
+    console.log(JSON.stringify(await openFrom(a, rest[0], rest[1])));
   } else if (cmd === 'signoff') {
     const r = await signoff(Number(a));
     console.log(JSON.stringify({ outcome: r.outcome, pr: r.pr?.number }));
