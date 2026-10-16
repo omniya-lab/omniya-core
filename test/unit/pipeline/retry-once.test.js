@@ -90,3 +90,15 @@ test('a limit without a number is refused', () => {
   const out = spawnSync(process.execPath, [script, '--limit-min', 'soon', 'true'], { env: { PATH: process.env.PATH }, encoding: 'utf8' });
   assert.notEqual(out.status, 0);
 });
+
+test('the two flakes seen live are named from the shape of a real CI log', () => {
+  // Seen on a macOS runner (lab run, 2026-10-16): a typing race in test/e2e/menu-undo.test.js, line 31.
+  const log = [
+    '# Subtest: Edit > Undo and Redo undo and redo typing',
+    'not ok 105 - Edit > Undo and Redo undo and redo typing',
+    "  location: '/Users/runner/work/omniya-core/omniya-core/test/e2e/menu-undo.test.js:31:1'",
+    "  error: |-\n    + 'Let a be positive. Then more.'\n    - 'Let a be positive.'"
+  ].join('\n');
+  assert.equal(flakedTest(log), 'test/e2e/menu-undo.test.js:31');
+  assert.equal(flakedTest("location: 'C:/a/omniya-core/test/e2e/word-flow.test.js:83:3'"), 'test/e2e/word-flow.test.js:83');
+});
