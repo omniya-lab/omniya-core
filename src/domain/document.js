@@ -166,3 +166,4 @@ export function docPlainText(doc) {
     .map((block) => (block.content ?? []).map((n) => (n.type === 'text' ? n.text : n.attrs?.source ?? '')).join(''))
     .join('\n');
 }
+
