@@ -347,6 +347,7 @@ test('judge: a failed npm ci, a new advisory, a failed audit and a changed list 
   const worse = judge(input(), machine({ audit: (dir) => audits[dir === 'head' ? 1 : 0] }));
   assert.equal(worse.result, 'fail');
   assert.match(worse.problems[0], /1 new high or critical advisory/);
+  assert.match(judge(input(), machine({ audit: (dir) => (dir === 'head' ? report({ n: { via: [via('n', 'high', 5), via('n', 'critical', 6)] } }) : report({})) })).problems[0], /2 new high or critical advisories/);
   assert.equal(judge(input(), machine({ audit: () => { throw new Error('offline'); } })).result, 'fail');
   assert.equal(judge(input(), machine({ audit: () => null })).result, 'fail');
   const noLock = judge(input({ touched: ['package.json'], lock: [BASE_LOCK, BASE_LOCK] }), machine());

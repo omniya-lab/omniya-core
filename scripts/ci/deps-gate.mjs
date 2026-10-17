@@ -136,6 +136,14 @@ export function gateRefusal(deps) {
   return `the automatic dependency safety check says ${clip(result, 20)}, and ${hint}, so it is not shipped${text ? `.\n${text}` : ''}`;
 }
 
+/** The plain summary of a dependency change, whatever the verdict, in the log and the run summary, for the session to read to the owner. */
+export function printSummary(env = process.env) {
+  const summary = String(env.DEPS_SUMMARY ?? '').trim();
+  if (!summary) return;
+  console.log(summary);
+  if (env.GITHUB_STEP_SUMMARY) appendFileSync(env.GITHUB_STEP_SUMMARY, `${summary}\n`);
+}
+
 /**
  * The config lane: a pull request that changes package.json, package-lock.json or electron-builder.yml and nothing
  * else. It sits inside the `pipeline/` lane. The shared `decide` has already judged who wrote it, who pushed, the
