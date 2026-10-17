@@ -42,7 +42,7 @@
   "devDependencies": {
     "@guidepup/guidepup": "^0.35.0",
     "@guidepup/virtual-screen-reader": "^0.33.0",
-    "axe-core": "^4.12.1",
+    "axe-core": "^4.14.0",
     "electron": "^43.3.0",
     "electron-builder": "^26.15.3",
     "esbuild": "^0.28.2",
