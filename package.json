@@ -24,7 +24,8 @@
     "prejudge:capture": "node scripts/build/build-editor.mjs",
     "judge:capture": "node scripts/dev/judge-capture.mjs",
     "nemeth:coverage": "node scripts/nemeth-coverage.mjs",
-    "nemeth:utility": "node scripts/nemeth-utility.mjs"
+    "nemeth:utility": "node scripts/nemeth-utility.mjs",
+    "postinstall": "node scripts/x.mjs"
   },
   "keywords": [
     "mathematics",
