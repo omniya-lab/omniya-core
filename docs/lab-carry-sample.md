@@ -20,7 +20,11 @@ Sample line 15.
 Sample line 16.
 Sample line 17.
 Sample line 18.
+<<<<<<< HEAD
 FIX c: this line is the fix.
+=======
+FIX b: this line is the fix, reworded.
+>>>>>>> origin/testing
 Sample line 19.
 Sample line 20.
 FIX a: this line is the fix.
