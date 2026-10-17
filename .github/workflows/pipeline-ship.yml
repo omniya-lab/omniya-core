@@ -23,6 +23,10 @@ name: pipeline-ship
 #   gh workflow run pipeline-ship.yml --ref testing -f pr_number=94 -f sha=<head commit>
 #   ... -f owner_said='ship it'     (only for the ship-it tier)
 #
+# A pull request that changes package.json, package-lock.json or electron-builder.yml also waits for the job
+# `deps` (the automatic safety checks, no secrets). Run this without `owner_said` first: the run summary then
+# holds the plain summary of what the change does, for the session to read to the owner before he says "ship it".
+#
 # `--ref testing` is not a choice. The environment `pipeline` allows only
 # `testing`, so GitHub refuses any other ref, and a pull request cannot edit the
 # workflow that ships it. Only the repository owner and the owner's session
@@ -78,8 +82,36 @@ jobs:
           SHA: ${{ inputs.sha }}
         run: node scripts/ci/lock-differential.mjs check "$SHA"
 
+  # The dependency safety checks. NO secret and NO environment. A pull request that changes package.json, the
+  # lockfile or electron-builder.yml is read here as DATA, by the trusted copy of `scripts/ci/deps-gate.mjs` from
+  # `testing`: parsed structure, the install-script allow list, registry-only addresses, then `npm ci --ignore-scripts`
+  # in a folder that holds just those files, then `npm audit`. The verdict and a plain summary go to the shipping job.
+  deps:
+    if: github.actor == github.repository_owner || github.actor == 'omniya-bot'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    outputs:
+      result: ${{ steps.check.outputs.result }}
+      summary: ${{ steps.check.outputs.summary }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: testing
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ inputs.sha }}
+        run: node scripts/ci/deps-gate.mjs check "$SHA"
+
   ship:
-    needs: differential
+    needs: [differential, deps]
     if: github.actor == github.repository_owner || github.actor == 'omniya-bot'
     environment: pipeline
     runs-on: ubuntu-latest
@@ -110,4 +142,6 @@ jobs:
           SHA: ${{ inputs.sha }}
           OWNER_SAID: ${{ inputs.owner_said }}
           DIFFERENTIAL: ${{ needs.differential.outputs.result }}
+          DEPS_RESULT: ${{ needs.deps.outputs.result }}
+          DEPS_SUMMARY: ${{ needs.deps.outputs.summary }}
         run: node scripts/ci/ship-pipeline-pr.mjs "$PR" "$SHA"

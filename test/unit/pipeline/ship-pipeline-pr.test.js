@@ -134,7 +134,8 @@ test('ships only plainly automation files, and sends everything else to the owne
     .map((filename) => ({ filename, status: 'modified', patch: '+words' }));
   assert.equal(withFiles(power).ship, false);
   assert.equal(withFiles(power, { ownerSaid: 'ship it' }).tier, 'ship-it');
-  for (const bad of ['src/main.js', 'package.json', 'package-lock.json', '.npmrc', '.nvmrc', 'test/unit/model.test.js', 'test/e2e/x.test.js', '.github/CODEOWNERS', '.github/actions/a/action.yml', '.github/workflows/sub/x.yml', '.github/workflows/PIPELINE-X.yml', 'scripts/build.mjs', 'contributors.yml', 'docs/../src/main.js']) {
+  // package.json, the lockfile and electron-builder.yml are the config lane now: see deps-gate.test.js.
+  for (const bad of ['src/main.js', '.npmrc', '.nvmrc', 'test/unit/model.test.js', 'test/e2e/x.test.js', '.github/CODEOWNERS', '.github/actions/a/action.yml', '.github/workflows/sub/x.yml', '.github/workflows/PIPELINE-X.yml', 'scripts/build.mjs', 'contributors.yml', 'docs/../src/main.js']) {
     const out = withFiles([doc, { filename: bad, status: 'modified', patch: '+x' }], { ownerSaid: 'ship it' });
     assert.equal(out.ship, false, bad);
     assert.match(out.reason, /approval in the merge box/, bad);
@@ -533,8 +534,8 @@ test('the workflow runs in the locked environment, from testing, for two actors,
   const yml = readFileSync('.github/workflows/pipeline-ship.yml', 'utf8');
   assert.match(yml, /environment: pipeline/);
   assert.match(yml, /github\.actor == github\.repository_owner \|\| github\.actor == 'omniya-bot'/);
-  // Both jobs check out `testing`, and nothing else.
-  assert.deepEqual([...yml.matchAll(/^\s*ref:\s*(.+)$/gm)].map((m) => m[1].trim()), ['testing', 'testing']);
+  // All three jobs check out `testing`, and nothing else.
+  assert.deepEqual([...yml.matchAll(/^\s*ref:\s*(.+)$/gm)].map((m) => m[1].trim()), ['testing', 'testing', 'testing']);
   assert.doesNotMatch(yml, /run:[^\n]*\$\{\{/, 'no expression inside a run line');
   assert.match(yml, /OWNER_SAID: \$\{\{ inputs\.owner_said \}\}/, 'the owner\'s words reach the script through env only');
   assert.doesNotMatch(yml, /CLAUDE_CODE_OAUTH_TOKEN/, 'no agent');
@@ -554,7 +555,7 @@ test('the strictness check runs in a job with no secret and no environment, and 
   assert.equal(checkout.with.ref, 'testing', 'the comparator is the trusted one from testing');
   assert.match(job.steps.find((s) => s.id === 'check').run, /lock-differential\.mjs check "\$SHA"/);
   // The shipping job needs it, and reads only its output.
-  assert.equal(wf.jobs.ship.needs, 'differential');
+  assert.deepEqual(wf.jobs.ship.needs, ['differential', 'deps']);
   const env = wf.jobs.ship.steps.find((s) => (s.run ?? '').includes('ship-pipeline-pr.mjs')).env;
   assert.equal(env.DIFFERENTIAL, '${{ needs.differential.outputs.result }}');
 });
