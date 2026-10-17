@@ -81,7 +81,7 @@ import { pathToFileURL } from 'node:url';
 
 import { gh as realGh, requireNumber, setOutputs } from './gh.mjs';
 import { structuralChanges } from './workflow-diff.mjs';
-import { configFileRefusal, decideConfig, gateRefusal, touchesConfig } from './deps-gate.mjs';
+import { configFileRefusal, decideConfig, gateRefusal, printSummary, touchesConfig } from './deps-gate.mjs';
 import { PRODUCT_PREFIX, decideProduct, readModes } from './product-lane.mjs';
 import { filesOf, foldersOf, zoneOf } from './zones.mjs';
 
@@ -550,6 +550,7 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
       : [`Did not ship #${pr}: ${result.reason}`];
     appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${lines.join('\n')}\n`);
   }
+  printSummary();
   console.log(result.shipped ? `shipped #${pr} (${result.tier})` : `did not ship #${pr}: ${result.reason}`);
   if (!result.shipped) process.exitCode = 1;
 }

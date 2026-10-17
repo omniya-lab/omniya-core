@@ -41,7 +41,7 @@ export function diffPackages(basePackages, headPackages) {
   };
 }
 
-export const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+export const plural = (n, word) => `${n} ${n === 1 ? word : `${word.replace(/y$/, 'ie')}s`}`;
 export const shown = (items, fmt, max = 12) => {
   const unique = [...new Set(items.map(fmt))];
   return unique.length <= max ? unique.join(', ') : `${unique.slice(0, max).join(', ')}, and ${unique.length - max} more`;
