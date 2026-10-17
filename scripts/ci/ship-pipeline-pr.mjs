@@ -550,6 +550,12 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
       : [`Did not ship #${pr}: ${result.reason}`];
     appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${lines.join('\n')}\n`);
   }
+  // The plain summary of a dependency change, whatever the verdict, so the session can read it to the owner.
+  const summary = (process.env.DEPS_SUMMARY ?? '').trim();
+  if (summary) {
+    console.log(summary);
+    if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${summary}\n`);
+  }
   console.log(result.shipped ? `shipped #${pr} (${result.tier})` : `did not ship #${pr}: ${result.reason}`);
   if (!result.shipped) process.exitCode = 1;
 }
