@@ -18,7 +18,7 @@ Sample line 15.
 Sample line 16.
 Sample line 17.
 Sample line 18.
-FIX b: this line is the fix.
+FIX b: this line is the fix, reworded.
 Sample line 19.
 Sample line 20.
 FIX a: this line is the fix.
