@@ -1,0 +1,8 @@
+{
+  "note": "Packages that are allowed to run an install, preinstall or postinstall script when the agent job runs `npm ci`. That job holds the pipeline's secrets, so a script there runs beside them. An entry is an exact package name and an exact major version. Seeded on 2026-10-17 from the packages that carry `hasInstallScript` in package-lock.json: electron-winstaller 5.4.0, esbuild 0.28.2 and fsevents 2.3.2. electron 43 has no install script (its binary downloads on first run), so it is not listed. Adding an entry is a change to the lock: it needs the owner's ship it and the strictness check. A dependency change never carries an entry for itself, because a dependency change may touch nothing but the package files.",
+  "allowed": [
+    { "name": "electron-winstaller", "major": 5 },
+    { "name": "esbuild", "major": 0 },
+    { "name": "fsevents", "major": 2 }
+  ]
+}

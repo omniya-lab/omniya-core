@@ -69,6 +69,23 @@ export const namesPull = (said, number) =>
   new RegExp(`(^|[^0-9])${String(number).replace(/[^0-9]/g, '')}($|[^0-9])`).test(String(said ?? ''));
 
 /**
+ * Is every file a plain file before and after? A symlink, an executable or a submodule is refused, and so is a
+ * change whose modes cannot be read. The product lane and the config lane both ask this.
+ * @returns {string|null} the plain reason, or null when every mode is 100644
+ */
+export function modeRefusal(files, modes) {
+  if (!modes || !modes.head || !modes.base) return 'the file modes could not be read, so a symlink could be hidden';
+  for (const file of files) {
+    const before = file.previous_filename ?? file.filename;
+    const after = file.status === 'removed' ? undefined : modes.head[file.filename];
+    const was = file.status === 'added' ? undefined : modes.base[before];
+    if (file.status !== 'removed' && after !== '100644') return `${file.filename} is a symlink, an executable or not a plain file (mode ${after}), so it is not shipped by a word`;
+    if (file.status !== 'added' && was !== '100644') return `${before} was not a plain file before this change (mode ${was}), so it is not shipped by a word`;
+  }
+  return null;
+}
+
+/**
  * @param {object} input
  * @param {Array<{filename: string, previous_filename?: string|null, status?: string, additions?: number, deletions?: number}>} input.files
  * @param {{head: Record<string,string>, base: Record<string,string>}|null} input.modes git file modes by path, null when unreadable
@@ -95,14 +112,8 @@ export function decideProduct({ files, modes, missing, number, ownerSaid, says }
       return { ship: false, reason: `${file.filename} loses more lines than it gains, so it is not shipped by a word` };
     }
   }
-  if (!modes || !modes.head || !modes.base) return { ship: false, reason: 'the file modes could not be read, so a symlink could be hidden' };
-  for (const file of files) {
-    const before = file.previous_filename ?? file.filename;
-    const after = file.status === 'removed' ? undefined : modes.head[file.filename];
-    const was = file.status === 'added' ? undefined : modes.base[before];
-    if (file.status !== 'removed' && after !== '100644') return { ship: false, reason: `${file.filename} is a symlink, an executable or not a plain file (mode ${after}), so it is not shipped by a word` };
-    if (file.status !== 'added' && was !== '100644') return { ship: false, reason: `${before} was not a plain file before this change (mode ${was}), so it is not shipped by a word` };
-  }
+  const refusedMode = modeRefusal(files, modes);
+  if (refusedMode) return { ship: false, reason: refusedMode };
   if (missing.length > 0) return { ship: false, reason: `not green on that commit: ${missing.join(', ')}` };
   if (!says || !namesPull(ownerSaid, number)) {
     return { ship: false, reason: `it needs the owner's "ship it" naming pull request ${number}` };

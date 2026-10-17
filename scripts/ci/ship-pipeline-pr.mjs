@@ -36,6 +36,11 @@
  * by `product-lane.mjs`, which allows only `src/`, `test/` and `docs/` (never the corpus or
  * the pipeline's tests) and needs the owner's "ship it" naming the PR. Same lock, same merge.
  *
+ * THE CONFIG LANE: a `pipeline/<slug>` branch that changes only `package.json`, `package-lock.json` and
+ * `electron-builder.yml` is judged by the same checks, then by `deps-gate.mjs` (job `deps` of the workflow, no
+ * secrets): parsed structure, install-script allow list, registry-only addresses, `npm ci --ignore-scripts`,
+ * `npm audit`. The shipper prints the plain summary. Any lane that touches those files needs the same pass.
+ *
  * What makes the automatic tier safe to run without a person:
  *   - It runs from `testing` only (the environment `pipeline` allows no other
  *     ref), so a pull request cannot edit the workflow that ships it.
@@ -76,6 +81,7 @@ import { pathToFileURL } from 'node:url';
 
 import { gh as realGh, requireNumber, setOutputs } from './gh.mjs';
 import { structuralChanges } from './workflow-diff.mjs';
+import { configFileRefusal, decideConfig, gateRefusal, touchesConfig } from './deps-gate.mjs';
 import { PRODUCT_PREFIX, decideProduct, readModes } from './product-lane.mjs';
 import { filesOf, foldersOf, zoneOf } from './zones.mjs';
 
@@ -104,9 +110,11 @@ export const LOCK_FILES = filesOf('lock');
  * edit to one feature: it loosens the gates for every later change.
  */
 export const SHIP_IT_FILES = filesOf('shipIt');
-// `package.json`, the lockfile, `.github/CODEOWNERS` and `.github/actions/` are not
-// listed on purpose. They are outside the allow list, so they need the owner's
-// bypass tick: a changed dependency is a supply-chain change, and an action can run anything.
+// `.github/CODEOWNERS` and `.github/actions/` are not listed on purpose. They are outside the
+// allow list, so they need the owner's bypass tick: an action can run anything. `package.json`, the
+// lockfile and `electron-builder.yml` are the CONFIG lane (`deps-gate.mjs`): the owner's "ship it"
+// naming the PR, a pull request that holds those files and nothing else, and every automatic safety
+// check passing, in a job with no secrets. The gate applies to a pull request in any lane.
 
 /**
  * SHIP-IT tier, by what a changed line says. Checked on the lines a pull request
@@ -330,9 +338,10 @@ export function notGreen(runs, jobsOf) {
  * @param {number} [input.pushCount]
  * @param {Array<{filename: string, previous_filename?: string|null, status?: string, patch?: string|null}>} [input.files]
  * @param {string} [input.ownerSaid] the owner's own words, when a "ship it" was given
+ * @param {{result: string, summary: string}} [input.deps] the verdict and plain summary of the dependency safety check
  * @returns {{ship: true, tier: 'automatic'|'ship-it', why: string[]} | {ship: false, reason: string}}
  */
-export function decide({ pr, sha, allowedAuthors, missing, pushers = [], pushCount = 0, files = [], ownerSaid = '', structural = [], differential = 'not-run', modes = null }) {
+export function decide({ pr, sha, allowedAuthors, missing, pushers = [], pushCount = 0, files = [], ownerSaid = '', structural = [], differential = 'not-run', modes = null, deps = null }) {
   if (pr.state !== 'OPEN') return { ship: false, reason: 'the pull request is not open' };
   if (pr.baseRefName !== 'testing') return { ship: false, reason: 'it does not go into testing' };
   if (pr.isCrossRepository !== false) return { ship: false, reason: 'it comes from a fork' };
@@ -355,9 +364,25 @@ export function decide({ pr, sha, allowedAuthors, missing, pushers = [], pushCou
     return { ship: false, reason: 'the list of changed files is not complete, so a protected file could be hidden' };
   }
 
+  // THE DEPENDENCY GATE, for every lane. A change to package.json, the lockfile or electron-builder.yml (also under
+  // an old name, or in another case) ships only when the automatic safety checks passed, whatever the branch is called
+  // and whatever else it holds. `deps` is the verdict of a job with no secrets; anything but a pass stops it.
+  const config = touchesConfig(files);
+  if (config && !product) {
+    // Its own file rule first, so a mixed pull request is told so plainly. Then the checks, then the owner's words.
+    const mixed = configFileRefusal(files);
+    if (mixed) return { ship: false, reason: mixed };
+    const refusal = gateRefusal(deps);
+    if (refusal) return { ship: false, reason: refusal };
+    return decideConfig({ files, modes, missing, number: pr.number, ownerSaid, says: saysShip(ownerSaid), deps });
+  }
+
   // The product lane: the same checks above, then its own file rule (`product-lane.mjs`).
   if (product) {
-    return decideProduct({ files, modes, missing, number: pr.number, ownerSaid, says: saysShip(ownerSaid) });
+    const verdict = decideProduct({ files, modes, missing, number: pr.number, ownerSaid, says: saysShip(ownerSaid) });
+    // The product zone refuses these files already. The gate is asked as well, so a later change to the zone cannot let one through.
+    const refusal = config && verdict.ship ? gateRefusal(deps) : null;
+    return refusal ? { ship: false, reason: refusal } : verdict;
   }
 
   const names = files.flatMap((f) => [f.filename, f.previous_filename]).filter(Boolean);
@@ -405,12 +430,12 @@ export function decide({ pr, sha, allowedAuthors, missing, pushers = [], pushCou
 const wait = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 
 /**
- * @param {{pr: string|number, sha: string, repo: string, allowedAuthors: string[], mergeToken: string, ownerSaid?: string, differential?: string}} args
+ * @param {{pr: string|number, sha: string, repo: string, allowedAuthors: string[], mergeToken: string, ownerSaid?: string, differential?: string, deps?: {result: string, summary: string}}} args
  *   `differential` is the verdict of the strictness check, from a job with no secrets: pass, fail, same, error or not-run.
  * @param {(args: string[], opts?: {token?: string}) => string} [gh]
  * @param {(ms: number) => void} [sleep]
  */
-export function ship({ pr, sha, repo, allowedAuthors, mergeToken, ownerSaid = '', differential = 'not-run' }, gh = realGh, sleep = wait) {
+export function ship({ pr, sha, repo, allowedAuthors, mergeToken, ownerSaid = '', differential = 'not-run', deps = null }, gh = realGh, sleep = wait) {
   const number = requireNumber(pr, 'pull request number');
   if (!/^[0-9a-f]{40}$/.test(sha)) throw new Error(`sha must be 40 hex characters, got: ${sha}`);
   if (!mergeToken) throw new Error('MERGE_TOKEN is not set. Refusing to ship without it.');
@@ -480,7 +505,8 @@ export function ship({ pr, sha, repo, allowedAuthors, mergeToken, ownerSaid = ''
     structural,
     ownerSaid,
     differential,
-    modes: view.headRefName.startsWith(PRODUCT_PREFIX) ? readModes({ repo, sha, gh }) : null
+    deps,
+    modes: view.headRefName.startsWith(PRODUCT_PREFIX) || touchesConfig(files) ? readModes({ repo, sha, gh }) : null
   });
   if (!decision.ship) return { shipped: false, reason: decision.reason };
 
@@ -513,7 +539,8 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
     allowedAuthors: (process.env.ALLOWED_AUTHORS ?? '').split(',').filter(Boolean),
     mergeToken: process.env.MERGE_TOKEN,
     ownerSaid,
-    differential: process.env.DIFFERENTIAL || 'not-run'
+    differential: process.env.DIFFERENTIAL || 'not-run',
+    deps: { result: process.env.DEPS_RESULT || 'not-run', summary: process.env.DEPS_SUMMARY ?? '' }
   });
   setOutputs({ shipped: result.shipped });
   // The log of who allowed what. For the ship-it and lock tiers, the owner's own words.
